@@ -1,0 +1,6 @@
+const fs=require('fs'
+let c=fs.readFileSync('gut/go.bat','utf8'
+c=c.replace('set \"TEST_FLAGS=\"\r\n','set \"TEST_FLAGS=\"\r\nset \"BYPASS_STABLE=\"\r\n'
+c=c.replace('shift\r\ngoto scan_args\r\n\r\n:dispatch\r\n','set \"ARG=%%~1\"\r\nif /I \"%%~1\"==\"-v\" set \"BYPASS_STABLE=1\"\r\nif /I \"%%~1\"==\"-list\" set \"BYPASS_STABLE=1\"\r\nif /I \"%%~1\"==\"-run\" set \"BYPASS_STABLE=1\"\r\nif /I \"!ARG:~0,6!\"==\"-list=\" set \"BYPASS_STABLE=1\"\r\nif /I \"!ARG:~0,5!\"==\"-run=\" set \"BYPASS_STABLE=1\"\r\nshift\r\ngoto scan_args\r\n\r\n:dispatch\r\n'
+c=c.replace('if /I \"%%MODE%%\"==\"testing_only\" goto run_testing_only\r\n','if defined BYPASS_STABLE goto passthrough\r\nif /I \"%%MODE%%\"==\"testing_only\" goto run_testing_only\r\n'
+fs.writeFileSync('gut/go.bat',c

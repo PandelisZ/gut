@@ -1,0 +1,59 @@
+package libnutcore
+
+import "gut/native/common"
+
+func linkedCapabilities() common.CapabilitySet {
+	return common.NewCapabilitySet(
+		common.CapabilityStatus{Capability: common.CapabilityMouseMove, Availability: common.AvailabilityAvailable, Reason: "libnut-core native mouse bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityMouseDrag, Availability: common.AvailabilityAvailable, Reason: "libnut-core native mouse bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityMousePosition, Availability: common.AvailabilityAvailable, Reason: "libnut-core native mouse bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityMouseClick, Availability: common.AvailabilityAvailable, Reason: "libnut-core native mouse bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityMouseToggle, Availability: common.AvailabilityAvailable, Reason: "libnut-core native mouse bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityMouseScroll, Availability: common.AvailabilityAvailable, Reason: "libnut-core native mouse bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityMouseDelay, Availability: common.AvailabilityAvailable, Reason: "client-local delay configuration is available"},
+		common.CapabilityStatus{Capability: common.CapabilityKeyboardTap, Availability: common.AvailabilityAvailable, Reason: "libnut-core native keyboard bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityKeyboardToggle, Availability: common.AvailabilityAvailable, Reason: "libnut-core native keyboard bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityKeyboardType, Availability: common.AvailabilityAvailable, Reason: "libnut-core native keyboard bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityKeyboardDelay, Availability: common.AvailabilityAvailable, Reason: "client-local delay configuration is available"},
+		common.CapabilityStatus{Capability: common.CapabilityScreenSize, Availability: common.AvailabilityAvailable, Reason: "libnut-core native screen bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityScreenHighlight, Availability: common.AvailabilityAvailable, Reason: "libnut-core native screen bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityScreenCapture, Availability: common.AvailabilityAvailable, Reason: "libnut-core native screen bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityWindowList, Availability: common.AvailabilityAvailable, Reason: "libnut-core native window bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityWindowActive, Availability: common.AvailabilityAvailable, Reason: "libnut-core native window bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityWindowRect, Availability: common.AvailabilityAvailable, Reason: "libnut-core native window bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityWindowTitle, Availability: common.AvailabilityAvailable, Reason: "libnut-core native window bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityWindowFocus, Availability: common.AvailabilityAvailable, Reason: "libnut-core native window bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityWindowMove, Availability: common.AvailabilityAvailable, Reason: "libnut-core native window bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityWindowResize, Availability: common.AvailabilityAvailable, Reason: "libnut-core native window bridge is linked via cgo"},
+		common.CapabilityStatus{Capability: common.CapabilityWindowMinimize, Availability: common.AvailabilityUnsupported, Reason: "libnut-core does not expose a native window minimize primitive"},
+		common.CapabilityStatus{Capability: common.CapabilityWindowRestore, Availability: common.AvailabilityUnsupported, Reason: "libnut-core does not expose a native window restore primitive"},
+	)
+}
+
+func unavailableCapabilities(reason string) common.CapabilitySet {
+	return common.NewCapabilitySet(
+		common.CapabilityStatus{Capability: common.CapabilityMouseMove, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityMouseDrag, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityMousePosition, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityMouseClick, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityMouseToggle, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityMouseScroll, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityMouseDelay, Availability: common.AvailabilityAvailable, Reason: "client-local delay configuration is available"},
+		common.CapabilityStatus{Capability: common.CapabilityKeyboardTap, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityKeyboardToggle, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityKeyboardType, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityKeyboardDelay, Availability: common.AvailabilityAvailable, Reason: "client-local delay configuration is available"},
+		common.CapabilityStatus{Capability: common.CapabilityScreenSize, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityScreenHighlight, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityScreenCapture, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityWindowList, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityWindowActive, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityWindowRect, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityWindowTitle, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityWindowFocus, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityWindowMove, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityWindowResize, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityWindowMinimize, Availability: common.AvailabilityUnsupported, Reason: "libnut-core does not expose a native window minimize primitive"},
+		common.CapabilityStatus{Capability: common.CapabilityWindowRestore, Availability: common.AvailabilityUnsupported, Reason: "libnut-core does not expose a native window restore primitive"},
+	)
+}

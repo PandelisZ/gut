@@ -1,0 +1,6 @@
+#include "../../../libnut-core/src/win32/keycode.c"
+#include "../../../libnut-core/src/win32/keypress.c"
+#include "../../../libnut-core/src/win32/mouse.c"
+#include "../../../libnut-core/src/win32/screen.c"
+#include "../../../libnut-core/src/win32/screengrab.c"
+#include "../../../libnut-core/src/win32/highlightwindow.c"

@@ -1,0 +1,10 @@
+.artifacts/
+.gotmp/
+
+# Go build and test artifacts
+*.exe
+*.test
+*.out
+
+# Local scratch files
+_tmp*.txt

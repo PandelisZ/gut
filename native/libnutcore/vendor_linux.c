@@ -1,0 +1,7 @@
+#include "../../../libnut-core/src/linux/xdisplay.c"
+#include "../../../libnut-core/src/linux/keycode.c"
+#include "../../../libnut-core/src/linux/keypress.c"
+#include "../../../libnut-core/src/linux/mouse.c"
+#include "../../../libnut-core/src/linux/screen.c"
+#include "../../../libnut-core/src/linux/screengrab.c"
+#include "../../../libnut-core/src/linux/highlightwindow.c"
