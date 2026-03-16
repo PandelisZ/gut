@@ -1,9 +1,14 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"image"
+	"image/color"
+	"image/png"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,6 +34,7 @@ type fakeLibnutcoreClient struct {
 	keyToggleErr      error
 	mouseClickButton  common.MouseButton
 	mouseClickDouble  bool
+	mouseClicks       []common.MouseButton
 	mouseClickErr     error
 	mouseToggleStates []common.ButtonState
 	mouseToggleButton []common.MouseButton
@@ -44,6 +50,8 @@ type fakeLibnutcoreClient struct {
 	captureErr        error
 	screenSize        common.Size
 	screenSizeErr     error
+	highlightCalls    int
+	captureCalls      int
 	highlightRegion   common.Rect
 	highlightDuration time.Duration
 	highlightOpacity  float64
@@ -78,6 +86,12 @@ type fakeLibnutcoreClient struct {
 
 func (f *fakeLibnutcoreClient) Info() libnutcore.BackendInfo { return f.info }
 func (f *fakeLibnutcoreClient) Capabilities() common.CapabilitySet {
+	if f.capabilities == nil {
+		return common.NewCapabilitySet(
+			common.CapabilityStatus{Capability: common.CapabilityScreenCapture, Availability: common.AvailabilityAvailable},
+			common.CapabilityStatus{Capability: common.CapabilityScreenHighlight, Availability: common.AvailabilityAvailable},
+		)
+	}
 	return f.capabilities
 }
 func (f *fakeLibnutcoreClient) DragMouse(position common.Point, button common.MouseButton) error {
@@ -93,6 +107,7 @@ func (f *fakeLibnutcoreClient) GetMousePosition() (common.Point, error) {
 func (f *fakeLibnutcoreClient) MouseClick(button common.MouseButton, double bool) error {
 	f.mouseClickButton = button
 	f.mouseClickDouble = double
+	f.mouseClicks = append(f.mouseClicks, button)
 	return f.mouseClickErr
 }
 func (f *fakeLibnutcoreClient) MouseToggle(state common.ButtonState, button common.MouseButton) error {
@@ -124,6 +139,9 @@ func (f *fakeLibnutcoreClient) KeyTap(key string, modifiers ...string) error {
 }
 func (f *fakeLibnutcoreClient) KeyToggle(key string, state common.KeyState, modifiers ...string) error {
 	f.keyToggles = append(f.keyToggles, recordedToggle{key: key, state: state})
+	if f.unavailableMode {
+		return common.UnavailableOperation("keyToggle", "linux", common.CapabilityKeyboardToggle, "fake native backend unavailable")
+	}
 	return f.keyToggleErr
 }
 func (f *fakeLibnutcoreClient) TypeString(text string) error {
@@ -142,12 +160,14 @@ func (f *fakeLibnutcoreClient) GetScreenSize() (common.Size, error) {
 	return f.screenSize, nil
 }
 func (f *fakeLibnutcoreClient) Highlight(region common.Rect, duration time.Duration, opacity float64) error {
+	f.highlightCalls++
 	f.highlightRegion = region
 	f.highlightDuration = duration
 	f.highlightOpacity = opacity
 	return f.highlightErr
 }
 func (f *fakeLibnutcoreClient) CaptureScreen(region *common.Rect) (*common.Bitmap, error) {
+	f.captureCalls++
 	if region != nil {
 		copy := *region
 		f.captureRegion = &copy
@@ -201,6 +221,32 @@ func (f *fakeLibnutcoreClient) RestoreWindow(handle common.WindowHandle) (bool, 
 func (f *fakeLibnutcoreClient) GetXDisplayName() (string, error)  { return "", nil }
 func (f *fakeLibnutcoreClient) SetXDisplayName(name string) error { return nil }
 
+func testPNGBytes(width, height int) []byte {
+	buffer := bytes.Buffer{}
+	imageData := image.NewRGBA(image.Rect(0, 0, width, height))
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			imageData.SetRGBA(x, y, color.RGBA{R: uint8(x + 1), G: uint8(y + 1), B: 0x7f, A: 0xff})
+		}
+	}
+	if err := png.Encode(&buffer, imageData); err != nil {
+		panic(err)
+	}
+	return buffer.Bytes()
+}
+
+func withScreenFallbackTestHooks(t *testing.T, goos string, screencapture func(context.Context, *common.Rect) ([]byte, error)) {
+	t.Helper()
+	previousGOOS := libnutcoreScreenGOOS
+	previousScreencapture := libnutcoreMacOSScreencapture
+	libnutcoreScreenGOOS = goos
+	libnutcoreMacOSScreencapture = screencapture
+	t.Cleanup(func() {
+		libnutcoreScreenGOOS = previousGOOS
+		libnutcoreMacOSScreencapture = previousScreencapture
+	})
+}
+
 func TestKeyToLibnutTokenUsesMainCCTokens(t *testing.T) {
 	cases := map[shared.Key]string{
 		shared.KeyLeftSuper:  "meta",
@@ -226,11 +272,19 @@ func TestKeyboardProviderClickUsesLastKeyAsPrimaryAndPreviousAsModifiers(t *test
 	if err := provider.Click(context.Background(), shared.KeyLeftControl, shared.KeyRightAlt, shared.KeyA); err != nil {
 		t.Fatalf("unexpected click error: %v", err)
 	}
-	if client.keyTapKey != "a" {
-		t.Fatalf("unexpected primary key: %q", client.keyTapKey)
+	if client.keyTapKey != "" || len(client.keyTapModifiers) != 0 {
+		t.Fatalf("expected click to avoid native key tap, got key=%q modifiers=%#v", client.keyTapKey, client.keyTapModifiers)
 	}
-	if !reflect.DeepEqual(client.keyTapModifiers, []string{"control", "right_alt"}) {
-		t.Fatalf("unexpected modifiers: %#v", client.keyTapModifiers)
+	want := []recordedToggle{
+		{key: "control", state: common.KeyStateDown},
+		{key: "right_alt", state: common.KeyStateDown},
+		{key: "a", state: common.KeyStateDown},
+		{key: "a", state: common.KeyStateUp},
+		{key: "right_alt", state: common.KeyStateUp},
+		{key: "control", state: common.KeyStateUp},
+	}
+	if !reflect.DeepEqual(client.keyToggles, want) {
+		t.Fatalf("unexpected toggle sequence: %#v", client.keyToggles)
 	}
 }
 
@@ -267,7 +321,7 @@ func TestKeyboardProviderChecksContextBeforeWork(t *testing.T) {
 	if err := provider.Click(ctx, shared.KeyA); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context cancellation, got %v", err)
 	}
-	if client.keyTapKey != "" {
+	if client.keyTapKey != "" || len(client.keyToggles) != 0 {
 		t.Fatal("expected no native calls after context cancellation")
 	}
 }
@@ -306,8 +360,15 @@ func TestKeyboardProviderClickRejectsUnknownKeysAndUsesDeleteToken(t *testing.T)
 	if err := provider.Click(context.Background(), shared.KeyDelete); err != nil {
 		t.Fatalf("unexpected delete click error: %v", err)
 	}
-	if client.keyTapKey != "delete" {
-		t.Fatalf("unexpected delete token: %q", client.keyTapKey)
+	if client.keyTapKey != "" {
+		t.Fatalf("expected click to avoid native key tap, got %q", client.keyTapKey)
+	}
+	wantDelete := []recordedToggle{
+		{key: "delete", state: common.KeyStateDown},
+		{key: "delete", state: common.KeyStateUp},
+	}
+	if !reflect.DeepEqual(client.keyToggles, wantDelete) {
+		t.Fatalf("unexpected delete toggle sequence: %#v", client.keyToggles)
 	}
 
 	if err := provider.Click(context.Background(), shared.KeyLeftControl, shared.Key(-1)); !errors.Is(err, common.ErrInvalidToken) {
@@ -320,12 +381,12 @@ func TestKeyboardProviderClickRejectsUnknownKeysAndUsesDeleteToken(t *testing.T)
 
 func TestKeyboardProviderPropagatesNativeToggleAndTapErrors(t *testing.T) {
 	t.Run("click", func(t *testing.T) {
-		tapErr := errors.New("tap failed")
-		client := &fakeLibnutcoreClient{keyTapErr: tapErr}
+		toggleErr := errors.New("toggle failed")
+		client := &fakeLibnutcoreClient{keyToggleErr: toggleErr}
 		provider := NewLibnutcoreKeyboardProvider(client)
 
-		if err := provider.Click(context.Background(), shared.KeyLeftShift, shared.KeyA); !errors.Is(err, tapErr) {
-			t.Fatalf("expected tap error, got %v", err)
+		if err := provider.Click(context.Background(), shared.KeyLeftShift, shared.KeyA); !errors.Is(err, toggleErr) {
+			t.Fatalf("expected toggle error, got %v", err)
 		}
 	})
 
@@ -369,8 +430,14 @@ func TestMouseProviderScrollAndButtonMapping(t *testing.T) {
 	if err := provider.DoubleClick(context.Background(), shared.ButtonMiddle); err != nil {
 		t.Fatalf("unexpected double click error: %v", err)
 	}
-	if client.mouseClickButton != common.MouseButtonMiddle || !client.mouseClickDouble {
+	if client.mouseClickButton != common.MouseButtonMiddle || client.mouseClickDouble {
 		t.Fatalf("unexpected double click call: button=%s double=%v", client.mouseClickButton, client.mouseClickDouble)
+	}
+	if len(client.mouseClicks) < 4 {
+		t.Fatalf("expected double click to emit two ordinary clicks, got %#v", client.mouseClicks)
+	}
+	if client.mouseClicks[len(client.mouseClicks)-2] != common.MouseButtonMiddle || client.mouseClicks[len(client.mouseClicks)-1] != common.MouseButtonMiddle {
+		t.Fatalf("expected final two clicks to target middle button, got %#v", client.mouseClicks)
 	}
 	if err := provider.ScrollUp(context.Background(), 3); err != nil {
 		t.Fatalf("unexpected scroll up error: %v", err)
@@ -558,6 +625,134 @@ func TestScreenProviderRegionCaptureAndHighlightForwarding(t *testing.T) {
 	size, err := provider.ScreenSize(context.Background())
 	if err != nil || size != (shared.Region{Left: 0, Top: 0, Width: 20, Height: 10}) {
 		t.Fatalf("unexpected screen size result: size=%#v err=%v", size, err)
+	}
+}
+
+func TestScreenProviderFallsBackToMacOSScreencaptureWhenNativeCaptureUnsupported(t *testing.T) {
+	t.Run("full screen", func(t *testing.T) {
+		client := &fakeLibnutcoreClient{
+			info: libnutcore.BackendInfo{Name: libnutcore.BackendName, Platform: "darwin", BindingState: libnutcore.BindingStateLinked},
+			capabilities: common.NewCapabilitySet(
+				common.CapabilityStatus{Capability: common.CapabilityScreenCapture, Availability: common.AvailabilityUnsupported, Reason: "native macOS capture is unsupported"},
+			),
+			screenSize: common.Size{Width: 5, Height: 3},
+		}
+		var fallbackRegion *common.Rect
+		withScreenFallbackTestHooks(t, "darwin", func(ctx context.Context, region *common.Rect) ([]byte, error) {
+			if region != nil {
+				copy := *region
+				fallbackRegion = &copy
+			}
+			return testPNGBytes(10, 6), nil
+		})
+		provider := NewLibnutcoreScreenProvider(client)
+
+		image, err := provider.GrabScreen(context.Background())
+		if err != nil {
+			t.Fatalf("unexpected grab screen fallback error: %v", err)
+		}
+		if client.captureCalls != 0 {
+			t.Fatalf("expected native capture to be skipped, got %d calls", client.captureCalls)
+		}
+		if fallbackRegion != nil {
+			t.Fatalf("expected full screen fallback to omit a region, got %#v", fallbackRegion)
+		}
+		if image.Width != 10 || image.Height != 6 || image.Channels != 4 || image.ColorMode != shared.ColorModeRGB {
+			t.Fatalf("unexpected fallback image metadata: %#v", image)
+		}
+		density := image.NormalizedPixelDensity()
+		if density.ScaleX != 2 || density.ScaleY != 2 {
+			t.Fatalf("unexpected full screen fallback density: %#v", density)
+		}
+	})
+
+	t.Run("region", func(t *testing.T) {
+		client := &fakeLibnutcoreClient{
+			info: libnutcore.BackendInfo{Name: libnutcore.BackendName, Platform: "darwin", BindingState: libnutcore.BindingStateLinked},
+			capabilities: common.NewCapabilitySet(
+				common.CapabilityStatus{Capability: common.CapabilityScreenCapture, Availability: common.AvailabilityUnsupported, Reason: "native macOS capture is unsupported"},
+			),
+		}
+		region := shared.Region{Left: 3, Top: 4, Width: 4, Height: 2}
+		var fallbackRegion *common.Rect
+		withScreenFallbackTestHooks(t, "darwin", func(ctx context.Context, nativeRegion *common.Rect) ([]byte, error) {
+			if nativeRegion == nil {
+				t.Fatal("expected region capture to pass a native region to the fallback")
+			}
+			copy := *nativeRegion
+			fallbackRegion = &copy
+			return testPNGBytes(8, 4), nil
+		})
+		provider := NewLibnutcoreScreenProvider(client)
+
+		image, err := provider.GrabScreenRegion(context.Background(), region)
+		if err != nil {
+			t.Fatalf("unexpected grab screen region fallback error: %v", err)
+		}
+		if client.captureCalls != 0 {
+			t.Fatalf("expected native region capture to be skipped, got %d calls", client.captureCalls)
+		}
+		if fallbackRegion == nil || *fallbackRegion != (common.Rect{X: 3, Y: 4, Width: 4, Height: 2}) {
+			t.Fatalf("unexpected fallback region forwarding: %#v", fallbackRegion)
+		}
+		density := image.NormalizedPixelDensity()
+		if density.ScaleX != 2 || density.ScaleY != 2 {
+			t.Fatalf("unexpected region fallback density: %#v", density)
+		}
+	})
+}
+
+func TestScreenProviderReturnsCapabilityUnavailableWhenCaptureUnsupportedOffDarwin(t *testing.T) {
+	client := &fakeLibnutcoreClient{
+		info: libnutcore.BackendInfo{Name: libnutcore.BackendName, Platform: "linux", BindingState: libnutcore.BindingStateLinked, Notes: []string{"x11 capture path missing"}},
+		capabilities: common.NewCapabilitySet(
+			common.CapabilityStatus{Capability: common.CapabilityScreenCapture, Availability: common.AvailabilityUnsupported, Reason: "native capture disabled"},
+		),
+	}
+	fallbackCalled := false
+	withScreenFallbackTestHooks(t, "linux", func(ctx context.Context, region *common.Rect) ([]byte, error) {
+		fallbackCalled = true
+		return nil, errors.New("unexpected fallback invocation")
+	})
+	provider := NewLibnutcoreScreenProvider(client)
+
+	_, err := provider.GrabScreenRegion(context.Background(), shared.Region{Left: 1, Top: 2, Width: 3, Height: 4})
+	if !errors.Is(err, common.ErrCapabilityUnavailable) {
+		t.Fatalf("expected ErrCapabilityUnavailable, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "native capture disabled") {
+		t.Fatalf("expected error to include the native reason, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "backend=libnut-core") {
+		t.Fatalf("expected error to include backend info, got %v", err)
+	}
+	if fallbackCalled {
+		t.Fatal("expected non-darwin capture to avoid the darwin fallback")
+	}
+	if client.captureCalls != 0 {
+		t.Fatalf("expected native capture to be skipped when unsupported, got %d calls", client.captureCalls)
+	}
+}
+
+func TestScreenProviderChecksHighlightCapabilityBeforeCallingNative(t *testing.T) {
+	client := &fakeLibnutcoreClient{
+		info: libnutcore.BackendInfo{Name: libnutcore.BackendName, Platform: "linux", BindingState: libnutcore.BindingStateLinked},
+		capabilities: common.NewCapabilitySet(
+			common.CapabilityStatus{Capability: common.CapabilityScreenCapture, Availability: common.AvailabilityAvailable},
+			common.CapabilityStatus{Capability: common.CapabilityScreenHighlight, Availability: common.AvailabilityUnavailable, Reason: "highlight overlay unavailable"},
+		),
+	}
+	provider := NewLibnutcoreScreenProvider(client)
+
+	err := provider.HighlightScreenRegion(context.Background(), shared.Region{Left: 3, Top: 4, Width: 5, Height: 6}, 25*time.Millisecond, 0.5)
+	if !errors.Is(err, common.ErrCapabilityUnavailable) {
+		t.Fatalf("expected ErrCapabilityUnavailable, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "highlight overlay unavailable") {
+		t.Fatalf("expected error to include the native reason, got %v", err)
+	}
+	if client.highlightCalls != 0 {
+		t.Fatalf("expected native highlight to be skipped, got %d calls", client.highlightCalls)
 	}
 }
 

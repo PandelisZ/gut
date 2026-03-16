@@ -106,6 +106,10 @@ func (c *bridgeClient) Highlight(region common.Rect, duration time.Duration, opa
 }
 
 func (c *bridgeClient) CaptureScreen(region *common.Rect) (*common.Bitmap, error) {
+	status := c.capabilities.Status(common.CapabilityScreenCapture)
+	if status.Availability != common.AvailabilityAvailable {
+		return nil, common.CapabilityUnavailable("captureScreen", c.platform, common.CapabilityScreenCapture, status.Reason)
+	}
 	return bridgeCaptureScreen(region)
 }
 

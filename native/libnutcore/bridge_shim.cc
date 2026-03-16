@@ -85,6 +85,10 @@ int gut_key_tap(const char *key_token, const char *const *modifier_tokens, size_
 	if (status != gut_status_ok) {
 		return status;
 	}
+	status = gut_validate_key_action(key, flags);
+	if (status != gut_status_ok) {
+		return status;
+	}
 	tapKeyCode(key, flags);
 	gut_apply_keyboard_delay();
 	return gut_status_ok;
@@ -103,6 +107,10 @@ int gut_key_toggle(const char *key_token, const char *state_token, const char *c
 	}
 	MMKeyFlags flags = MOD_NONE;
 	status = gut_collect_modifiers(modifier_tokens, modifier_count, &flags);
+	if (status != gut_status_ok) {
+		return status;
+	}
+	status = gut_validate_key_action(key, flags);
 	if (status != gut_status_ok) {
 		return status;
 	}
@@ -146,6 +154,11 @@ int gut_capture_screen(const gut_rect *region, gut_bitmap **bitmap) {
 	if (bitmap == NULL) {
 		return gut_status_failed;
 	}
+#if defined(IS_MACOSX)
+	(void)region;
+	*bitmap = NULL;
+	return gut_status_capability_unavailable;
+#else
 	MMRect native_region;
 	if (region != NULL) {
 		native_region = MMRectMake(region->x, region->y, region->width, region->height);
@@ -179,6 +192,7 @@ int gut_capture_screen(const gut_rect *region, gut_bitmap **bitmap) {
 	*bitmap = result;
 	destroyMMBitmap(native_bitmap);
 	return gut_status_ok;
+#endif
 }
 
 int gut_get_windows(gut_window_list *windows) {

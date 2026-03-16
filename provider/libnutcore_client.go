@@ -4,9 +4,12 @@ import (
 	"time"
 
 	"gut/native/common"
+	"gut/native/libnutcore"
 )
 
 type libnutcoreClient interface {
+	Info() libnutcore.BackendInfo
+	Capabilities() common.CapabilitySet
 	MoveMouse(position common.Point) error
 	GetMousePosition() (common.Point, error)
 	MouseClick(button common.MouseButton, double bool) error

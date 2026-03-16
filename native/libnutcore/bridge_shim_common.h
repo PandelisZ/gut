@@ -19,6 +19,7 @@ enum {
 	gut_status_invalid_token = 1,
 	gut_status_failed = 2,
 	gut_status_unsupported = 3,
+	gut_status_capability_unavailable = 4,
 };
 
 static int64_t gut_mouse_delay_ms = 10;
@@ -228,6 +229,21 @@ static int gut_collect_modifiers(const char *const *modifier_tokens, size_t modi
 		}
 		*flags = (MMKeyFlags)(*flags | modifier);
 	}
+	return gut_status_ok;
+}
+
+static int gut_validate_key_action(MMKeyCode key, MMKeyFlags flags) {
+#if defined(IS_MACOSX)
+	if (flags != MOD_NONE) {
+		return gut_status_capability_unavailable;
+	}
+	if ((int)key == (int)K_NOT_A_KEY || key >= 1000) {
+		return gut_status_capability_unavailable;
+	}
+#else
+	(void)flags;
+#endif
+	(void)key;
 	return gut_status_ok;
 }
 

@@ -8,5 +8,7 @@
 //
 // Known gaps:
 //   - window minimize and restore remain unsupported because libnut-core does not expose those primitives
+//   - macOS screen capture is intentionally disabled in the safety model until a safe implementation is ready
+//   - macOS key tap/toggle only expose primitive no-modifier CGEvent paths; higher-level key chords must be composed above this layer
 //   - the real cgo bridge path is present but is not exercised in the default CGO_ENABLED=0 test environment
 package libnutcore

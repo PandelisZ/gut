@@ -10,7 +10,7 @@ package libnutcore
 #cgo windows CXXFLAGS: -std=c++17 -I${SRCDIR} -I${SRCDIR}/../../../libnut-core/src
 #cgo windows LDFLAGS: -lgdi32 -luser32
 #cgo darwin CFLAGS: -I${SRCDIR} -I${SRCDIR}/../../../libnut-core/src
-#cgo darwin CXXFLAGS: -std=c++17 -I${SRCDIR} -I${SRCDIR}/../../../libnut-core/src
+#cgo darwin CXXFLAGS: -x objective-c++ -std=c++17 -I${SRCDIR} -I${SRCDIR}/../../../libnut-core/src
 #cgo darwin LDFLAGS: -framework Cocoa -framework Foundation -framework AppKit -framework ApplicationServices -framework Carbon -framework IOKit
 #include <stdlib.h>
 #include "bridge_shim.h"
@@ -249,6 +249,8 @@ func bridgeStatusError(operation string, capability common.Capability, status in
 		return fmt.Errorf("%w: %s [%s]", common.ErrInvalidToken, operation, capability)
 	case 3:
 		return common.UnsupportedOperation(operation, runtime.GOOS, capability, "operation is not supported by the linked native backend on this platform")
+	case 4:
+		return common.CapabilityUnavailable(operation, runtime.GOOS, capability, "operation is intentionally disabled by the linked native backend safety model")
 	default:
 		return common.UnavailableOperation(operation, runtime.GOOS, capability, "linked native bridge call failed")
 	}

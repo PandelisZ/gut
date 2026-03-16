@@ -50,14 +50,10 @@ func (p *libnutcoreMouseProvider) Click(ctx context.Context, button shared.Butto
 }
 
 func (p *libnutcoreMouseProvider) DoubleClick(ctx context.Context, button shared.Button) error {
-	if err := ctx.Err(); err != nil {
+	if err := p.Click(ctx, button); err != nil {
 		return err
 	}
-	nativeButton, err := buttonToNative(button)
-	if err != nil {
-		return err
-	}
-	return p.client.MouseClick(nativeButton, true)
+	return p.Click(ctx, button)
 }
 
 func (p *libnutcoreMouseProvider) ScrollUp(ctx context.Context, amount int) error {

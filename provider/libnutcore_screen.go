@@ -21,32 +21,48 @@ func (p *libnutcoreScreenProvider) GrabScreen(ctx context.Context) (shared.Image
 	if err := ctx.Err(); err != nil {
 		return shared.Image{}, err
 	}
-	bitmap, err := p.client.CaptureScreen(nil)
+	region, err := p.ScreenSize(ctx)
 	if err != nil {
 		return shared.Image{}, err
 	}
-	size, err := p.client.GetScreenSize()
-	if err != nil {
-		return shared.Image{}, err
+	if p.client.Capabilities().Supports(common.CapabilityScreenCapture) {
+		bitmap, err := p.client.CaptureScreen(nil)
+		if err != nil {
+			return shared.Image{}, err
+		}
+		return imageFromBitmap(bitmap, region, "grabScreenResult")
 	}
-	return imageFromBitmap(bitmap, shared.Region{Left: 0, Top: 0, Width: size.Width, Height: size.Height}, "grabScreenResult")
+	if libnutcoreScreenGOOS == "darwin" {
+		return captureMacOSScreenFallback(ctx, nil, region, "grabScreenResult")
+	}
+	return shared.Image{}, libnutcoreCapabilityUnavailableError(p.client, "captureScreen", common.CapabilityScreenCapture)
 }
 
 func (p *libnutcoreScreenProvider) GrabScreenRegion(ctx context.Context, region shared.Region) (shared.Image, error) {
 	if err := ctx.Err(); err != nil {
 		return shared.Image{}, err
 	}
-	nativeRegion := regionToNative(region)
-	bitmap, err := p.client.CaptureScreen(&nativeRegion)
-	if err != nil {
-		return shared.Image{}, err
+	if p.client.Capabilities().Supports(common.CapabilityScreenCapture) {
+		nativeRegion := regionToNative(region)
+		bitmap, err := p.client.CaptureScreen(&nativeRegion)
+		if err != nil {
+			return shared.Image{}, err
+		}
+		return imageFromBitmap(bitmap, region, "grabScreenRegionResult")
 	}
-	return imageFromBitmap(bitmap, region, "grabScreenRegionResult")
+	if libnutcoreScreenGOOS == "darwin" {
+		nativeRegion := regionToNative(region)
+		return captureMacOSScreenFallback(ctx, &nativeRegion, region, "grabScreenRegionResult")
+	}
+	return shared.Image{}, libnutcoreCapabilityUnavailableError(p.client, "captureScreen", common.CapabilityScreenCapture)
 }
 
 func (p *libnutcoreScreenProvider) HighlightScreenRegion(ctx context.Context, region shared.Region, duration time.Duration, opacity float64) error {
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+	if !p.client.Capabilities().Supports(common.CapabilityScreenHighlight) {
+		return libnutcoreCapabilityUnavailableError(p.client, "highlight", common.CapabilityScreenHighlight)
 	}
 	return p.client.Highlight(regionToNative(region), duration, opacity)
 }

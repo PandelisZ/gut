@@ -33,8 +33,12 @@ func TestNewUsesDefaultsAndReportsPlatform(t *testing.T) {
 	if info.Platform != wantPlatform {
 		t.Fatalf("unexpected platform: got %s want %s", info.Platform, wantPlatform)
 	}
-	if info.BindingState != BindingStateUnavailable {
-		t.Fatalf("unexpected binding state: %s", info.BindingState)
+	wantBinding := BindingStateUnavailable
+	if client.Capabilities().Status(common.CapabilityMouseMove).Availability == common.AvailabilityAvailable {
+		wantBinding = BindingStateLinked
+	}
+	if info.BindingState != wantBinding {
+		t.Fatalf("unexpected binding state: got %s want %s", info.BindingState, wantBinding)
 	}
 	if len(info.Notes) == 0 {
 		t.Fatal("expected backend notes")
@@ -44,19 +48,24 @@ func TestNewUsesDefaultsAndReportsPlatform(t *testing.T) {
 func TestCapabilitiesReturnsCopy(t *testing.T) {
 	client := New(Options{})
 	capabilities := client.Capabilities()
+	original := capabilities.Status(common.CapabilityMouseMove)
 	capabilities[common.CapabilityMouseMove] = common.CapabilityStatus{
 		Capability:   common.CapabilityMouseMove,
 		Availability: common.AvailabilityAvailable,
 	}
 
 	again := client.Capabilities()
-	if again[common.CapabilityMouseMove].Availability != common.AvailabilityUnavailable {
+	if again[common.CapabilityMouseMove].Availability != original.Availability {
 		t.Fatalf("expected original capability set to remain unchanged, got %s", again[common.CapabilityMouseMove].Availability)
 	}
 }
 
 func TestUnavailableOperationIsStable(t *testing.T) {
 	client := New(Options{})
+	if client.Capabilities().Status(common.CapabilityMouseMove).Availability == common.AvailabilityAvailable {
+		t.Skip("mouse move is available with the linked native backend")
+	}
+
 	err := client.MoveMouse(common.Point{X: 10, Y: 20})
 	if !errors.Is(err, common.ErrNativeBindingUnavailable) {
 		t.Fatalf("expected ErrNativeBindingUnavailable, got %v", err)

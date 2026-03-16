@@ -34,11 +34,10 @@ func (p *libnutcoreKeyboardProvider) Click(ctx context.Context, keys ...shared.K
 	if len(keys) == 0 {
 		return nil
 	}
-	primary, modifiers, err := splitPrimaryAndModifiers(keys)
-	if err != nil {
+	if err := p.PressKey(ctx, keys...); err != nil {
 		return err
 	}
-	return p.client.KeyTap(primary, modifiers...)
+	return p.ReleaseKey(ctx, keys...)
 }
 
 func (p *libnutcoreKeyboardProvider) PressKey(ctx context.Context, keys ...shared.Key) error {
@@ -71,25 +70,4 @@ func (p *libnutcoreKeyboardProvider) ReleaseKey(ctx context.Context, keys ...sha
 		}
 	}
 	return nil
-}
-
-func splitPrimaryAndModifiers(keys []shared.Key) (string, []string, error) {
-	primary, err := keyToLibnutToken(keys[len(keys)-1])
-	if err != nil {
-		return "", nil, err
-	}
-	modifiers := make([]string, 0, len(keys)-1)
-	for _, key := range keys[:len(keys)-1] {
-		token, ok := modifierToLibnutToken(key)
-		if ok {
-			modifiers = append(modifiers, token)
-			continue
-		}
-		token, err = keyToLibnutToken(key)
-		if err != nil {
-			return "", nil, err
-		}
-		modifiers = append(modifiers, token)
-	}
-	return primary, modifiers, nil
 }

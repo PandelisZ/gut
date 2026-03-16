@@ -1,2 +1,1 @@
-#include "../../../libnut-core/src/macos/highlightwindow.m"
-#include "../../../libnut-core/src/macos/screengrab.m"
+/* Local macOS Objective-C bridge files are compiled directly from this package. */
