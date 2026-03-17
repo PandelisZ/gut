@@ -98,6 +98,25 @@ func TestWindowCapabilityGapsAreDeterministic(t *testing.T) {
 	}
 }
 
+func TestAXInteractionCapabilitiesAreDeclared(t *testing.T) {
+	linked := linkedCapabilities()
+	unavailable := unavailableCapabilities("binding unavailable")
+
+	for _, capability := range []common.Capability{
+		common.CapabilityAXFocusedWindowRaise,
+		common.CapabilityAXFocusedElementAction,
+		common.CapabilityAXElementActionAtPoint,
+		common.CapabilityAXElementFocusAtPoint,
+	} {
+		if status := linked.Status(capability); status.Availability != common.AvailabilityUnsupported {
+			t.Fatalf("expected linked %s to be unsupported off-Darwin by default, got %s", capability, status.Availability)
+		}
+		if status := unavailable.Status(capability); status.Availability != common.AvailabilityUnavailable {
+			t.Fatalf("expected unavailable %s to be unavailable, got %s", capability, status.Availability)
+		}
+	}
+}
+
 func TestXDisplayCapabilityMatchesPlatform(t *testing.T) {
 	client := New(Options{XDisplayName: ":99"})
 	capabilities := client.Capabilities()

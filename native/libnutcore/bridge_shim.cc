@@ -1,11 +1,105 @@
 #include "bridge_shim.h"
 #include "bridge_shim_common.h"
 
+#if defined(IS_MACOSX)
+#include "accessibility_darwin.h"
+#endif
+
 #include <stdlib.h>
 
 extern "C" {
 
+#if defined(IS_MACOSX)
+static int gut_require_accessibility_permission(void) {
+	return gut_darwin_accessibility_permission_granted() ? gut_status_ok : gut_status_permission_denied;
+}
+#else
+static int gut_require_accessibility_permission(void) {
+	return gut_status_ok;
+}
+#endif
+
+int gut_get_permission_snapshot(gut_permission_snapshot *snapshot) {
+#if defined(IS_MACOSX)
+	return gut_darwin_get_permission_snapshot(snapshot);
+#else
+	(void)snapshot;
+	return gut_status_unsupported;
+#endif
+}
+
+int gut_get_focused_window_metadata(gut_window_metadata *metadata) {
+#if defined(IS_MACOSX)
+	return gut_darwin_get_focused_window_metadata(metadata);
+#else
+	(void)metadata;
+	return gut_status_unsupported;
+#endif
+}
+
+int gut_raise_focused_window(void) {
+#if defined(IS_MACOSX)
+	return gut_darwin_raise_focused_window();
+#else
+	return gut_status_unsupported;
+#endif
+}
+
+int gut_get_focused_element_metadata(gut_element_metadata *metadata) {
+#if defined(IS_MACOSX)
+	return gut_darwin_get_focused_element_metadata(metadata);
+#else
+	(void)metadata;
+	return gut_status_unsupported;
+#endif
+}
+
+int gut_perform_focused_element_action(const char *action_token) {
+#if defined(IS_MACOSX)
+	return gut_darwin_perform_focused_element_action(action_token);
+#else
+	(void)action_token;
+	return gut_status_unsupported;
+#endif
+}
+
+int gut_get_element_metadata_at_point(int64_t x, int64_t y, gut_element_metadata *metadata) {
+#if defined(IS_MACOSX)
+	return gut_darwin_get_element_metadata_at_point(x, y, metadata);
+#else
+	(void)x;
+	(void)y;
+	(void)metadata;
+	return gut_status_unsupported;
+#endif
+}
+
+int gut_perform_element_action_at_point(int64_t x, int64_t y, const char *action_token) {
+#if defined(IS_MACOSX)
+	return gut_darwin_perform_element_action_at_point(x, y, action_token);
+#else
+	(void)x;
+	(void)y;
+	(void)action_token;
+	return gut_status_unsupported;
+#endif
+}
+
+int gut_focus_element_at_point(int64_t x, int64_t y) {
+#if defined(IS_MACOSX)
+	return gut_darwin_focus_element_at_point(x, y);
+#else
+	(void)x;
+	(void)y;
+	return gut_status_unsupported;
+#endif
+}
+
 int gut_drag_mouse(int64_t x, int64_t y, const char *button_token) {
+	int permission_status = gut_require_accessibility_permission();
+	if (permission_status != gut_status_ok) {
+		return permission_status;
+	}
 	MMMouseButton button = LEFT_BUTTON;
 	int status = gut_parse_mouse_button(button_token, &button);
 	if (status != gut_status_ok) {
@@ -17,6 +111,10 @@ int gut_drag_mouse(int64_t x, int64_t y, const char *button_token) {
 }
 
 int gut_move_mouse(int64_t x, int64_t y) {
+	int permission_status = gut_require_accessibility_permission();
+	if (permission_status != gut_status_ok) {
+		return permission_status;
+	}
 	moveMouse(MMPointMake(x, y));
 	gut_apply_mouse_delay();
 	return gut_status_ok;
@@ -33,6 +131,10 @@ int gut_get_mouse_pos(gut_point *point) {
 }
 
 int gut_mouse_click(const char *button_token, int double_click) {
+	int permission_status = gut_require_accessibility_permission();
+	if (permission_status != gut_status_ok) {
+		return permission_status;
+	}
 	MMMouseButton button = LEFT_BUTTON;
 	int status = gut_parse_mouse_button(button_token, &button);
 	if (status != gut_status_ok) {
@@ -48,6 +150,10 @@ int gut_mouse_click(const char *button_token, int double_click) {
 }
 
 int gut_mouse_toggle(const char *state_token, const char *button_token) {
+	int permission_status = gut_require_accessibility_permission();
+	if (permission_status != gut_status_ok) {
+		return permission_status;
+	}
 	int down = 0;
 	int status = gut_parse_button_state(state_token, &down);
 	if (status != gut_status_ok) {
@@ -64,6 +170,10 @@ int gut_mouse_toggle(const char *state_token, const char *button_token) {
 }
 
 int gut_scroll_mouse(int horizontal, int vertical) {
+	int permission_status = gut_require_accessibility_permission();
+	if (permission_status != gut_status_ok) {
+		return permission_status;
+	}
 	scrollMouse(horizontal, vertical);
 	gut_apply_mouse_delay();
 	return gut_status_ok;
@@ -75,6 +185,10 @@ int gut_set_mouse_delay(int64_t delay_ms) {
 }
 
 int gut_key_tap(const char *key_token, const char *const *modifier_tokens, size_t modifier_count) {
+	int permission_status = gut_require_accessibility_permission();
+	if (permission_status != gut_status_ok) {
+		return permission_status;
+	}
 	MMKeyCode key;
 	int status = gut_parse_key_code(key_token, &key);
 	if (status != gut_status_ok) {
@@ -95,6 +209,10 @@ int gut_key_tap(const char *key_token, const char *const *modifier_tokens, size_
 }
 
 int gut_key_toggle(const char *key_token, const char *state_token, const char *const *modifier_tokens, size_t modifier_count) {
+	int permission_status = gut_require_accessibility_permission();
+	if (permission_status != gut_status_ok) {
+		return permission_status;
+	}
 	MMKeyCode key;
 	int status = gut_parse_key_code(key_token, &key);
 	if (status != gut_status_ok) {
@@ -120,12 +238,20 @@ int gut_key_toggle(const char *key_token, const char *state_token, const char *c
 }
 
 int gut_type_string(const char *text) {
+	int permission_status = gut_require_accessibility_permission();
+	if (permission_status != gut_status_ok) {
+		return permission_status;
+	}
 	typeString(text);
 	gut_apply_keyboard_delay();
 	return gut_status_ok;
 }
 
 int gut_type_string_delayed(const char *text, int cpm) {
+	int permission_status = gut_require_accessibility_permission();
+	if (permission_status != gut_status_ok) {
+		return permission_status;
+	}
 	typeStringDelayed(text, (unsigned int)cpm);
 	return gut_status_ok;
 }
@@ -249,6 +375,10 @@ int gut_focus_window(int64_t window_handle, int *result) {
 	if (result == NULL) {
 		return gut_status_failed;
 	}
+	int permission_status = gut_require_accessibility_permission();
+	if (permission_status != gut_status_ok) {
+		return permission_status;
+	}
 	*result = focusWindow(window_handle) ? 1 : 0;
 	return gut_status_ok;
 }
@@ -257,6 +387,10 @@ int gut_move_window(int64_t window_handle, int64_t x, int64_t y, int *result) {
 	if (result == NULL) {
 		return gut_status_failed;
 	}
+	int permission_status = gut_require_accessibility_permission();
+	if (permission_status != gut_status_ok) {
+		return permission_status;
+	}
 	*result = moveWindow(window_handle, MMPointMake(x, y)) ? 1 : 0;
 	return gut_status_ok;
 }
@@ -264,6 +398,10 @@ int gut_move_window(int64_t window_handle, int64_t x, int64_t y, int *result) {
 int gut_resize_window(int64_t window_handle, int64_t width, int64_t height, int *result) {
 	if (result == NULL) {
 		return gut_status_failed;
+	}
+	int permission_status = gut_require_accessibility_permission();
+	if (permission_status != gut_status_ok) {
+		return permission_status;
 	}
 	*result = resizeWindow(window_handle, MMSizeMake(width, height)) ? 1 : 0;
 	return gut_status_ok;
@@ -312,6 +450,22 @@ void gut_free_window_list(gut_window_list *windows) {
 	free(windows->handles);
 	windows->handles = NULL;
 	windows->length = 0;
+}
+
+void gut_free_window_metadata(gut_window_metadata *metadata) {
+#if defined(IS_MACOSX)
+	gut_darwin_free_window_metadata(metadata);
+#else
+	(void)metadata;
+#endif
+}
+
+void gut_free_element_metadata(gut_element_metadata *metadata) {
+#if defined(IS_MACOSX)
+	gut_darwin_free_element_metadata(metadata);
+#else
+	(void)metadata;
+#endif
 }
 
 }

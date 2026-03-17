@@ -20,6 +20,8 @@ enum {
 	gut_status_failed = 2,
 	gut_status_unsupported = 3,
 	gut_status_capability_unavailable = 4,
+	gut_status_permission_denied = 5,
+	gut_status_no_element_at_point = 6,
 };
 
 static int64_t gut_mouse_delay_ms = 10;

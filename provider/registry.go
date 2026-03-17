@@ -30,6 +30,7 @@ var (
 	ErrMissingMouseProvider             = MissingProviderError{Name: "mouse"}
 	ErrMissingScreenProvider            = MissingProviderError{Name: "screen"}
 	ErrMissingWindowProvider            = MissingProviderError{Name: "window"}
+	ErrMissingAccessibilityProvider     = MissingProviderError{Name: "accessibility"}
 	ErrMissingImageFinderProvider       = MissingProviderError{Name: "image-finder"}
 	ErrMissingImageReaderProvider       = MissingProviderError{Name: "image-reader"}
 	ErrMissingImageWriterProvider       = MissingProviderError{Name: "image-writer"}
@@ -46,6 +47,7 @@ type Registry struct {
 	mouse             MouseProvider
 	screen            ScreenProvider
 	window            WindowProvider
+	accessibility     AccessibilityProvider
 	logger            gutlog.Logger
 	imageFinder       ImageFinder
 	imageReader       ImageReader
@@ -62,18 +64,19 @@ func NewRegistry() *Registry {
 	return &Registry{}
 }
 
-func (r *Registry) RegisterKeyboard(provider KeyboardProvider)     { r.keyboard = provider }
-func (r *Registry) RegisterMouse(provider MouseProvider)           { r.mouse = provider }
-func (r *Registry) RegisterScreen(provider ScreenProvider)         { r.screen = provider }
-func (r *Registry) RegisterWindow(provider WindowProvider)         { r.window = provider }
-func (r *Registry) RegisterLogger(provider gutlog.Logger)          { r.logger = provider }
-func (r *Registry) RegisterImageFinder(provider ImageFinder)       { r.imageFinder = provider }
-func (r *Registry) RegisterImageReader(provider ImageReader)       { r.imageReader = provider }
-func (r *Registry) RegisterImageWriter(provider ImageWriter)       { r.imageWriter = provider }
-func (r *Registry) RegisterImageProcessor(provider ImageProcessor) { r.imageProcessor = provider }
-func (r *Registry) RegisterTextFinder(provider TextFinder)         { r.textFinder = provider }
-func (r *Registry) RegisterWindowFinder(provider WindowFinder)     { r.windowFinder = provider }
-func (r *Registry) RegisterColorFinder(provider ColorFinder)       { r.colorFinder = provider }
+func (r *Registry) RegisterKeyboard(provider KeyboardProvider)           { r.keyboard = provider }
+func (r *Registry) RegisterMouse(provider MouseProvider)                 { r.mouse = provider }
+func (r *Registry) RegisterScreen(provider ScreenProvider)               { r.screen = provider }
+func (r *Registry) RegisterWindow(provider WindowProvider)               { r.window = provider }
+func (r *Registry) RegisterAccessibility(provider AccessibilityProvider) { r.accessibility = provider }
+func (r *Registry) RegisterLogger(provider gutlog.Logger)                { r.logger = provider }
+func (r *Registry) RegisterImageFinder(provider ImageFinder)             { r.imageFinder = provider }
+func (r *Registry) RegisterImageReader(provider ImageReader)             { r.imageReader = provider }
+func (r *Registry) RegisterImageWriter(provider ImageWriter)             { r.imageWriter = provider }
+func (r *Registry) RegisterImageProcessor(provider ImageProcessor)       { r.imageProcessor = provider }
+func (r *Registry) RegisterTextFinder(provider TextFinder)               { r.textFinder = provider }
+func (r *Registry) RegisterWindowFinder(provider WindowFinder)           { r.windowFinder = provider }
+func (r *Registry) RegisterColorFinder(provider ColorFinder)             { r.colorFinder = provider }
 func (r *Registry) RegisterElementInspection(provider ElementInspectionProvider) {
 	r.elementInspection = provider
 }
@@ -105,6 +108,13 @@ func (r *Registry) Window() (WindowProvider, error) {
 		return nil, ErrMissingWindowProvider
 	}
 	return r.window, nil
+}
+
+func (r *Registry) Accessibility() (AccessibilityProvider, error) {
+	if r.accessibility == nil {
+		return nil, ErrMissingAccessibilityProvider
+	}
+	return r.accessibility, nil
 }
 
 func (r *Registry) Logger() gutlog.Logger {

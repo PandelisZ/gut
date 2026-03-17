@@ -10,6 +10,7 @@ var (
 	ErrNativeBindingUnavailable = errors.New("native binding unavailable")
 	ErrUnsupportedPlatform      = errors.New("native platform unsupported")
 	ErrCapabilityUnavailable    = errors.New("native capability unavailable")
+	ErrPermissionDenied         = errors.New("native permission denied")
 	ErrInvalidToken             = errors.New("invalid native token")
 )
 
@@ -62,6 +63,16 @@ func CapabilityUnavailable(operation, platform string, capability Capability, de
 		Capability: capability,
 		Detail:     detail,
 		Cause:      ErrCapabilityUnavailable,
+	}
+}
+
+func PermissionDeniedOperation(operation, platform string, capability Capability, detail string) error {
+	return &OperationError{
+		Operation:  operation,
+		Platform:   platform,
+		Capability: capability,
+		Detail:     detail,
+		Cause:      ErrPermissionDenied,
 	}
 }
 

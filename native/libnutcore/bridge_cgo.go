@@ -104,6 +104,106 @@ func bridgeSetKeyboardDelay(delay time.Duration) error {
 	return bridgeStatusError("setKeyboardDelay", common.CapabilityKeyboardDelay, int(C.gut_set_keyboard_delay(C.int64_t(delay/time.Millisecond))))
 }
 
+func bridgeGetPermissionSnapshot() (common.PermissionSnapshot, error) {
+	var snapshot C.gut_permission_snapshot
+	if err := bridgeStatusError("getPermissionSnapshot", common.CapabilityPermissionReadiness, int(C.gut_get_permission_snapshot(&snapshot))); err != nil {
+		return common.PermissionSnapshot{}, err
+	}
+	result := common.PermissionSnapshot{
+		Accessibility: common.PermissionStatus{
+			Granted:   snapshot.accessibility_granted != 0,
+			Supported: snapshot.accessibility_supported != 0,
+		},
+		ScreenRecording: common.PermissionStatus{
+			Granted:   snapshot.screen_recording_granted != 0,
+			Supported: snapshot.screen_recording_supported != 0,
+		},
+	}
+	if result.Accessibility.Supported {
+		if result.Accessibility.Granted {
+			result.Accessibility.Reason = "Accessibility permission is granted"
+		} else {
+			result.Accessibility.Reason = "Accessibility permission is not granted"
+		}
+	}
+	if result.ScreenRecording.Supported {
+		if result.ScreenRecording.Granted {
+			result.ScreenRecording.Reason = "Screen Recording permission is granted"
+		} else {
+			result.ScreenRecording.Reason = "Screen Recording permission is not granted"
+		}
+	} else {
+		result.ScreenRecording.Reason = "Screen Recording preflight is not available in the linked SDK/runtime"
+	}
+	return result, nil
+}
+
+func bridgeGetFocusedWindow() (common.FocusedWindowMetadata, error) {
+	var metadata C.gut_window_metadata
+	if err := bridgeStatusError("getFocusedWindow", common.CapabilityAXFocusedWindowMetadata, int(C.gut_get_focused_window_metadata(&metadata))); err != nil {
+		return common.FocusedWindowMetadata{}, err
+	}
+	defer C.gut_free_window_metadata(&metadata)
+	return common.FocusedWindowMetadata{
+		Handle:    common.WindowHandle(metadata.handle),
+		Title:     cStringToGo(metadata.title),
+		Role:      cStringToGo(metadata.role),
+		Subrole:   cStringToGo(metadata.subrole),
+		Rect:      common.Rect{X: int(metadata.rect.x), Y: int(metadata.rect.y), Width: int(metadata.rect.width), Height: int(metadata.rect.height)},
+		RectKnown: metadata.has_rect != 0,
+		Focused:   metadata.focused != 0,
+		Main:      metadata.main != 0,
+		Minimized: metadata.minimized != 0,
+		OwnerPID:  int(metadata.owner_pid),
+		OwnerName: cStringToGo(metadata.owner_name),
+		BundleID:  cStringToGo(metadata.bundle_id),
+	}, nil
+}
+
+func bridgeRaiseFocusedWindow() error {
+	return bridgeAXInteractionError("raiseFocusedWindow", common.CapabilityAXFocusedWindowRaise, int(C.gut_raise_focused_window()), "no focused AX window is available or the focused window does not support AXRaise")
+}
+
+func bridgeGetFocusedElement() (common.UIElementMetadata, error) {
+	var metadata C.gut_element_metadata
+	if err := bridgeStatusError("getFocusedElement", common.CapabilityAXFocusedElementMetadata, int(C.gut_get_focused_element_metadata(&metadata))); err != nil {
+		return common.UIElementMetadata{}, err
+	}
+	defer C.gut_free_element_metadata(&metadata)
+	return convertElementMetadata(metadata), nil
+}
+
+func bridgePerformFocusedElementAction(action common.AXAction) error {
+	if err := validateAXAction(action, "performFocusedElementAction", common.CapabilityAXFocusedElementAction); err != nil {
+		return err
+	}
+	cAction := C.CString(string(action))
+	defer C.free(unsafe.Pointer(cAction))
+	return bridgeAXInteractionError("performFocusedElementAction", common.CapabilityAXFocusedElementAction, int(C.gut_perform_focused_element_action(cAction)), "no focused AX element is available or it does not support the requested AX action")
+}
+
+func bridgeGetElementAtPoint(position common.Point) (common.UIElementMetadata, error) {
+	var metadata C.gut_element_metadata
+	if err := bridgeStatusError("getElementAtPoint", common.CapabilityAXElementAtPointMetadata, int(C.gut_get_element_metadata_at_point(C.int64_t(position.X), C.int64_t(position.Y), &metadata))); err != nil {
+		return common.UIElementMetadata{}, err
+	}
+	defer C.gut_free_element_metadata(&metadata)
+	return convertElementMetadata(metadata), nil
+}
+
+func bridgePerformElementActionAtPoint(position common.Point, action common.AXAction) error {
+	if err := validateAXAction(action, "performElementActionAtPoint", common.CapabilityAXElementActionAtPoint); err != nil {
+		return err
+	}
+	cAction := C.CString(string(action))
+	defer C.free(unsafe.Pointer(cAction))
+	return bridgeAXInteractionError("performElementActionAtPoint", common.CapabilityAXElementActionAtPoint, int(C.gut_perform_element_action_at_point(C.int64_t(position.X), C.int64_t(position.Y), cAction)), "no AX element is available at the requested point or it does not support the requested AX action")
+}
+
+func bridgeFocusElementAtPoint(position common.Point) error {
+	return bridgeAXInteractionError("focusElementAtPoint", common.CapabilityAXElementFocusAtPoint, int(C.gut_focus_element_at_point(C.int64_t(position.X), C.int64_t(position.Y))), "no AX element is available at the requested point or it does not expose a settable AXFocused attribute")
+}
+
 func bridgeGetScreenSize() (common.Size, error) {
 	var size C.gut_size
 	if err := bridgeStatusError("getScreenSize", common.CapabilityScreenSize, int(C.gut_get_screen_size(&size))); err != nil {
@@ -241,6 +341,59 @@ func makeCStringArray(values []string) (**C.char, func()) {
 	}
 }
 
+func convertElementMetadata(metadata C.gut_element_metadata) common.UIElementMetadata {
+	actions := make([]string, 0, int(metadata.actions.length))
+	if metadata.actions.length > 0 && metadata.actions.items != nil {
+		values := unsafe.Slice((**C.char)(unsafe.Pointer(metadata.actions.items)), int(metadata.actions.length))
+		for _, value := range values {
+			actions = append(actions, cStringToGo(value))
+		}
+	}
+	return common.UIElementMetadata{
+		Role:        cStringToGo(metadata.role),
+		Subrole:     cStringToGo(metadata.subrole),
+		Title:       cStringToGo(metadata.title),
+		Description: cStringToGo(metadata.description),
+		Value:       cStringToGo(metadata.value),
+		Enabled:     metadata.enabled != 0,
+		Focused:     metadata.focused != 0,
+		Frame:       common.Rect{X: int(metadata.frame.x), Y: int(metadata.frame.y), Width: int(metadata.frame.width), Height: int(metadata.frame.height)},
+		FrameKnown:  metadata.has_frame != 0,
+		Actions:     actions,
+	}
+}
+
+func cStringToGo(value *C.char) string {
+	if value == nil {
+		return ""
+	}
+	return C.GoString(value)
+}
+
+func validateAXAction(action common.AXAction, operation string, capability common.Capability) error {
+	if action == "" {
+		return fmt.Errorf("%w: %s [%s]", common.ErrInvalidToken, operation, capability)
+	}
+	return nil
+}
+
+func bridgeAXInteractionError(operation string, capability common.Capability, status int, unavailableDetail string) error {
+	switch status {
+	case 0:
+		return nil
+	case 1:
+		return fmt.Errorf("%w: %s [%s]", common.ErrInvalidToken, operation, capability)
+	case 3:
+		return common.UnsupportedOperation(operation, runtime.GOOS, capability, "operation is not supported by the linked native backend on this platform")
+	case 4, 6:
+		return common.CapabilityUnavailable(operation, runtime.GOOS, capability, unavailableDetail)
+	case 5:
+		return common.PermissionDeniedOperation(operation, runtime.GOOS, capability, "operation requires macOS Accessibility permission")
+	default:
+		return common.UnavailableOperation(operation, runtime.GOOS, capability, "linked native bridge call failed")
+	}
+}
+
 func bridgeStatusError(operation string, capability common.Capability, status int) error {
 	switch status {
 	case 0:
@@ -251,6 +404,10 @@ func bridgeStatusError(operation string, capability common.Capability, status in
 		return common.UnsupportedOperation(operation, runtime.GOOS, capability, "operation is not supported by the linked native backend on this platform")
 	case 4:
 		return common.CapabilityUnavailable(operation, runtime.GOOS, capability, "operation is intentionally disabled by the linked native backend safety model")
+	case 6:
+		return common.CapabilityUnavailable(operation, runtime.GOOS, capability, "no AX element is available at the requested point")
+	case 5:
+		return common.PermissionDeniedOperation(operation, runtime.GOOS, capability, "operation requires macOS Accessibility permission")
 	default:
 		return common.UnavailableOperation(operation, runtime.GOOS, capability, "linked native bridge call failed")
 	}

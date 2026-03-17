@@ -116,6 +116,15 @@ static void gut_show_highlight_window_without_app_loop(gut_highlight_context *hi
 	}
 }
 
+static void gut_show_highlight_window_without_app_loop_async(void *context) {
+	gut_highlight_context *highlight = (gut_highlight_context *)context;
+	if (highlight == NULL) {
+		return;
+	}
+	gut_show_highlight_window_without_app_loop(highlight);
+	free(highlight);
+}
+
 void showHighlightWindow(int32_t x, int32_t y, int32_t width, int32_t height, long duration, float opacity) {
 	gut_highlight_context context = {
 		.x = x,
@@ -132,10 +141,7 @@ void showHighlightWindow(int32_t x, int32_t y, int32_t width, int32_t height, lo
 			return;
 		}
 		*async_context = context;
-		dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^{
-			gut_show_highlight_window_without_app_loop(async_context);
-			free(async_context);
-		});
+		gut_run_on_main_thread_async(gut_show_highlight_window_without_app_loop_async, async_context);
 		return;
 	}
 

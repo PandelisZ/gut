@@ -116,10 +116,16 @@ func TestProcessorColorAtReturnsStableErrors(t *testing.T) {
 		t.Fatalf("expected channel layout error, got %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond)
+	canceledCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := processor.ColorAt(ctx, image, shared.Point{X: 0, Y: 0}); !errors.Is(err, context.Canceled) {
+	if _, err := processor.ColorAt(canceledCtx, image, shared.Point{X: 0, Y: 0}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected canceled error, got %v", err)
+	}
+
+	deadlineCtx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Millisecond))
+	defer cancel()
+	if _, err := processor.ColorAt(deadlineCtx, image, shared.Point{X: 0, Y: 0}); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded error, got %v", err)
 	}
 }
 

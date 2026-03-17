@@ -23,65 +23,82 @@ type recordedToggle struct {
 }
 
 type fakeLibnutcoreClient struct {
-	info              libnutcore.BackendInfo
-	capabilities      common.CapabilitySet
-	keyTapKey         string
-	keyTapModifiers   []string
-	keyTapErr         error
-	typedText         []string
-	typeStringErr     error
-	keyToggles        []recordedToggle
-	keyToggleErr      error
-	mouseClickButton  common.MouseButton
-	mouseClickDouble  bool
-	mouseClicks       []common.MouseButton
-	mouseClickErr     error
-	mouseToggleStates []common.ButtonState
-	mouseToggleButton []common.MouseButton
-	mouseToggleErr    error
-	scrolls           [][2]int
-	scrollErr         error
-	moveMousePoint    common.Point
-	moveMouseErr      error
-	mousePosition     common.Point
-	mousePositionErr  error
-	captureRegion     *common.Rect
-	captureBitmap     *common.Bitmap
-	captureErr        error
-	screenSize        common.Size
-	screenSizeErr     error
-	highlightCalls    int
-	captureCalls      int
-	highlightRegion   common.Rect
-	highlightDuration time.Duration
-	highlightOpacity  float64
-	highlightErr      error
-	windows           []common.WindowHandle
-	getWindowsErr     error
-	activeWindow      common.WindowHandle
-	activeWindowErr   error
-	windowRectHandle  common.WindowHandle
-	windowRect        common.Rect
-	windowRectErr     error
-	windowTitleHandle common.WindowHandle
-	windowTitle       string
-	windowTitleErr    error
-	focusHandle       common.WindowHandle
-	focusResult       bool
-	focusErr          error
-	resizeHandle      common.WindowHandle
-	resizeSize        common.Size
-	resizeResult      bool
-	resizeErr         error
-	moveWindowHandle  common.WindowHandle
-	moveWindowOrigin  common.Point
-	moveWindowResult  bool
-	moveWindowErr     error
-	unavailableMode   bool
-	minimizeHandle    common.WindowHandle
-	minimizeErr       error
-	restoreHandle     common.WindowHandle
-	restoreErr        error
+	info                         libnutcore.BackendInfo
+	capabilities                 common.CapabilitySet
+	permissionSnapshot           common.PermissionSnapshot
+	permissionSnapshotErr        error
+	focusedWindow                common.FocusedWindowMetadata
+	focusedWindowErr             error
+	focusedElement               common.UIElementMetadata
+	focusedElementErr            error
+	elementAtPointPosition       common.Point
+	elementAtPoint               common.UIElementMetadata
+	elementAtPointErr            error
+	raiseFocusedWindowErr        error
+	performFocusedElementAction  common.AXAction
+	performFocusedElementErr     error
+	elementActionAtPointPosition common.Point
+	elementActionAtPointAction   common.AXAction
+	elementActionAtPointErr      error
+	focusElementAtPointPosition  common.Point
+	focusElementAtPointErr       error
+	keyTapKey                    string
+	keyTapModifiers              []string
+	keyTapErr                    error
+	typedText                    []string
+	typeStringErr                error
+	keyToggles                   []recordedToggle
+	keyToggleErr                 error
+	mouseClickButton             common.MouseButton
+	mouseClickDouble             bool
+	mouseClicks                  []common.MouseButton
+	mouseClickErr                error
+	mouseToggleStates            []common.ButtonState
+	mouseToggleButton            []common.MouseButton
+	mouseToggleErr               error
+	scrolls                      [][2]int
+	scrollErr                    error
+	moveMousePoint               common.Point
+	moveMouseErr                 error
+	mousePosition                common.Point
+	mousePositionErr             error
+	captureRegion                *common.Rect
+	captureBitmap                *common.Bitmap
+	captureErr                   error
+	screenSize                   common.Size
+	screenSizeErr                error
+	highlightCalls               int
+	captureCalls                 int
+	highlightRegion              common.Rect
+	highlightDuration            time.Duration
+	highlightOpacity             float64
+	highlightErr                 error
+	windows                      []common.WindowHandle
+	getWindowsErr                error
+	activeWindow                 common.WindowHandle
+	activeWindowErr              error
+	windowRectHandle             common.WindowHandle
+	windowRect                   common.Rect
+	windowRectErr                error
+	windowTitleHandle            common.WindowHandle
+	windowTitle                  string
+	windowTitleErr               error
+	focusHandle                  common.WindowHandle
+	focusResult                  bool
+	focusErr                     error
+	resizeHandle                 common.WindowHandle
+	resizeSize                   common.Size
+	resizeResult                 bool
+	resizeErr                    error
+	moveWindowHandle             common.WindowHandle
+	moveWindowOrigin             common.Point
+	moveWindowResult             bool
+	moveWindowErr                error
+	unavailableMode              bool
+	minimizeHandle               common.WindowHandle
+	minimizeErr                  error
+	restoreHandle                common.WindowHandle
+	restoreErr                   error
 }
 
 func (f *fakeLibnutcoreClient) Info() libnutcore.BackendInfo { return f.info }
@@ -93,6 +110,35 @@ func (f *fakeLibnutcoreClient) Capabilities() common.CapabilitySet {
 		)
 	}
 	return f.capabilities
+}
+func (f *fakeLibnutcoreClient) GetPermissionSnapshot() (common.PermissionSnapshot, error) {
+	return f.permissionSnapshot, f.permissionSnapshotErr
+}
+func (f *fakeLibnutcoreClient) GetFocusedWindow() (common.FocusedWindowMetadata, error) {
+	return f.focusedWindow, f.focusedWindowErr
+}
+func (f *fakeLibnutcoreClient) GetFocusedElement() (common.UIElementMetadata, error) {
+	return f.focusedElement, f.focusedElementErr
+}
+func (f *fakeLibnutcoreClient) GetElementAtPoint(position common.Point) (common.UIElementMetadata, error) {
+	f.elementAtPointPosition = position
+	return f.elementAtPoint, f.elementAtPointErr
+}
+func (f *fakeLibnutcoreClient) RaiseFocusedWindow() error {
+	return f.raiseFocusedWindowErr
+}
+func (f *fakeLibnutcoreClient) PerformFocusedElementAction(action common.AXAction) error {
+	f.performFocusedElementAction = action
+	return f.performFocusedElementErr
+}
+func (f *fakeLibnutcoreClient) PerformElementActionAtPoint(position common.Point, action common.AXAction) error {
+	f.elementActionAtPointPosition = position
+	f.elementActionAtPointAction = action
+	return f.elementActionAtPointErr
+}
+func (f *fakeLibnutcoreClient) FocusElementAtPoint(position common.Point) error {
+	f.focusElementAtPointPosition = position
+	return f.focusElementAtPointErr
 }
 func (f *fakeLibnutcoreClient) DragMouse(position common.Point, button common.MouseButton) error {
 	return nil
@@ -245,6 +291,184 @@ func withScreenFallbackTestHooks(t *testing.T, goos string, screencapture func(c
 		libnutcoreScreenGOOS = previousGOOS
 		libnutcoreMacOSScreencapture = previousScreencapture
 	})
+}
+
+func TestAccessibilityProviderForwardsMetadataAndCapabilities(t *testing.T) {
+	capabilities := common.NewCapabilitySet(
+		common.CapabilityStatus{Capability: common.CapabilityPermissionReadiness, Availability: common.AvailabilityPermissionBlocked, Reason: "accessibility permission denied"},
+		common.CapabilityStatus{Capability: common.CapabilityAXFocusedWindowMetadata, Availability: common.AvailabilityAvailable},
+		common.CapabilityStatus{Capability: common.CapabilityAXFocusedElementMetadata, Availability: common.AvailabilityAvailable},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementAtPointMetadata, Availability: common.AvailabilityUnsupported, Reason: "element lookup not implemented"},
+	)
+	permissionSnapshot := common.PermissionSnapshot{
+		Accessibility:   common.PermissionStatus{Granted: false, Supported: true, Reason: "accessibility permission denied"},
+		ScreenRecording: common.PermissionStatus{Granted: true, Supported: true},
+	}
+	focusedWindow := common.FocusedWindowMetadata{
+		Handle:    77,
+		Title:     "Editor",
+		Role:      "AXWindow",
+		Subrole:   "AXStandardWindow",
+		Rect:      common.Rect{X: 10, Y: 20, Width: 300, Height: 200},
+		RectKnown: true,
+		Focused:   true,
+		Main:      true,
+		OwnerPID:  42,
+		OwnerName: "TestApp",
+		BundleID:  "com.example.test",
+	}
+	focusedElement := common.UIElementMetadata{
+		Role:        "AXTextField",
+		Subrole:     "AXSearchField",
+		Title:       "Search",
+		Description: "Search field",
+		Value:       "query",
+		Enabled:     true,
+		Focused:     true,
+		Frame:       common.Rect{X: 30, Y: 40, Width: 120, Height: 24},
+		FrameKnown:  true,
+		Actions:     []string{"AXPress", "AXConfirm"},
+	}
+	pointElement := common.UIElementMetadata{
+		Role:        "AXButton",
+		Title:       "Go",
+		Description: "Run search",
+		Enabled:     true,
+		Frame:       common.Rect{X: 160, Y: 40, Width: 44, Height: 24},
+		FrameKnown:  true,
+	}
+	client := &fakeLibnutcoreClient{
+		capabilities:       capabilities,
+		permissionSnapshot: permissionSnapshot,
+		focusedWindow:      focusedWindow,
+		focusedElement:     focusedElement,
+		elementAtPoint:     pointElement,
+	}
+	provider := NewLibnutcoreAccessibilityProvider(client)
+
+	gotPermissionSnapshot, err := provider.GetPermissionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected permission snapshot error: %v", err)
+	}
+	if !reflect.DeepEqual(gotPermissionSnapshot, permissionSnapshot) {
+		t.Fatalf("unexpected permission snapshot: %#v", gotPermissionSnapshot)
+	}
+
+	gotFocusedWindow, err := provider.GetFocusedWindow(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected focused window error: %v", err)
+	}
+	if !reflect.DeepEqual(gotFocusedWindow, focusedWindow) {
+		t.Fatalf("unexpected focused window metadata: %#v", gotFocusedWindow)
+	}
+
+	gotFocusedElement, err := provider.GetFocusedElement(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected focused element error: %v", err)
+	}
+	if !reflect.DeepEqual(gotFocusedElement, focusedElement) {
+		t.Fatalf("unexpected focused element metadata: %#v", gotFocusedElement)
+	}
+
+	gotPointElement, err := provider.GetElementAtPoint(context.Background(), shared.Point{X: 160, Y: 52})
+	if err != nil {
+		t.Fatalf("unexpected element-at-point error: %v", err)
+	}
+	if client.elementAtPointPosition != (common.Point{X: 160, Y: 52}) {
+		t.Fatalf("unexpected element-at-point position: %#v", client.elementAtPointPosition)
+	}
+	if !reflect.DeepEqual(gotPointElement, pointElement) {
+		t.Fatalf("unexpected element-at-point metadata: %#v", gotPointElement)
+	}
+	if !reflect.DeepEqual(provider.Capabilities(), capabilities) {
+		t.Fatalf("unexpected capabilities: %#v", provider.Capabilities())
+	}
+}
+
+func TestAccessibilityProviderForwardsActions(t *testing.T) {
+	actionErr := errors.New("ax action failed")
+	client := &fakeLibnutcoreClient{
+		raiseFocusedWindowErr: actionErr,
+	}
+	provider := NewLibnutcoreAccessibilityProvider(client)
+
+	if err := provider.RaiseFocusedWindow(context.Background()); !errors.Is(err, actionErr) {
+		t.Fatalf("expected raise-focused-window error, got %v", err)
+	}
+
+	client.raiseFocusedWindowErr = nil
+	client.performFocusedElementErr = actionErr
+	if err := provider.PerformFocusedElementAction(context.Background(), common.AXConfirm); !errors.Is(err, actionErr) {
+		t.Fatalf("expected focused-element action error, got %v", err)
+	}
+	if client.performFocusedElementAction != common.AXConfirm {
+		t.Fatalf("unexpected focused-element action forwarding: %q", client.performFocusedElementAction)
+	}
+
+	client.performFocusedElementErr = nil
+	client.elementActionAtPointErr = actionErr
+	if err := provider.PerformElementActionAtPoint(context.Background(), shared.Point{X: 45, Y: 67}, common.AXShowMenu); !errors.Is(err, actionErr) {
+		t.Fatalf("expected element-at-point action error, got %v", err)
+	}
+	if client.elementActionAtPointPosition != (common.Point{X: 45, Y: 67}) {
+		t.Fatalf("unexpected element-at-point position: %#v", client.elementActionAtPointPosition)
+	}
+	if client.elementActionAtPointAction != common.AXShowMenu {
+		t.Fatalf("unexpected element-at-point action forwarding: %q", client.elementActionAtPointAction)
+	}
+
+	client.elementActionAtPointErr = nil
+	client.focusElementAtPointErr = actionErr
+	if err := provider.FocusElementAtPoint(context.Background(), shared.Point{X: 12, Y: 34}); !errors.Is(err, actionErr) {
+		t.Fatalf("expected focus-element-at-point error, got %v", err)
+	}
+	if client.focusElementAtPointPosition != (common.Point{X: 12, Y: 34}) {
+		t.Fatalf("unexpected focus-element-at-point position: %#v", client.focusElementAtPointPosition)
+	}
+}
+
+func TestAccessibilityProviderChecksContextBeforeWork(t *testing.T) {
+	client := &fakeLibnutcoreClient{}
+	provider := NewLibnutcoreAccessibilityProvider(client)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := provider.GetPermissionSnapshot(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for permission snapshot, got %v", err)
+	}
+	if _, err := provider.GetFocusedWindow(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for focused window, got %v", err)
+	}
+	if _, err := provider.GetFocusedElement(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for focused element, got %v", err)
+	}
+	if _, err := provider.GetElementAtPoint(ctx, shared.Point{X: 1, Y: 2}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for element-at-point, got %v", err)
+	}
+	if err := provider.RaiseFocusedWindow(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for raise-focused-window, got %v", err)
+	}
+	if err := provider.PerformFocusedElementAction(ctx, common.AXPress); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for focused-element action, got %v", err)
+	}
+	if err := provider.PerformElementActionAtPoint(ctx, shared.Point{X: 3, Y: 4}, common.AXPick); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for element-at-point action, got %v", err)
+	}
+	if err := provider.FocusElementAtPoint(ctx, shared.Point{X: 5, Y: 6}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for focus-element-at-point, got %v", err)
+	}
+	if client.elementAtPointPosition != (common.Point{}) {
+		t.Fatalf("expected canceled element-at-point lookup to avoid native calls, got %#v", client.elementAtPointPosition)
+	}
+	if client.performFocusedElementAction != "" {
+		t.Fatalf("expected canceled focused-element action to avoid native calls, got %q", client.performFocusedElementAction)
+	}
+	if client.elementActionAtPointPosition != (common.Point{}) || client.elementActionAtPointAction != "" {
+		t.Fatalf("expected canceled element-at-point action to avoid native calls, got position=%#v action=%q", client.elementActionAtPointPosition, client.elementActionAtPointAction)
+	}
+	if client.focusElementAtPointPosition != (common.Point{}) {
+		t.Fatalf("expected canceled focus-element-at-point to avoid native calls, got %#v", client.focusElementAtPointPosition)
+	}
 }
 
 func TestKeyToLibnutTokenUsesMainCCTokens(t *testing.T) {
@@ -962,6 +1186,10 @@ func TestRegisterLibnutcoreProvidersSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected window lookup error: %v", err)
 	}
+	accessibility, err := registry.Accessibility()
+	if err != nil {
+		t.Fatalf("unexpected accessibility lookup error: %v", err)
+	}
 
 	if err := keyboard.Click(context.Background(), shared.KeyA); err == nil {
 		t.Fatal("expected default build keyboard click to report native unavailability")
@@ -974,5 +1202,8 @@ func TestRegisterLibnutcoreProvidersSmoke(t *testing.T) {
 	}
 	if _, err := window.MinimizeWindow(context.Background(), 1); !errors.Is(err, common.ErrCapabilityUnavailable) {
 		t.Fatalf("expected minimize to remain deterministic, got %v", err)
+	}
+	if !reflect.DeepEqual(accessibility.Capabilities(), client.Capabilities()) {
+		t.Fatalf("unexpected accessibility capabilities: %#v", accessibility.Capabilities())
 	}
 }

@@ -10,6 +10,14 @@ import (
 type libnutcoreClient interface {
 	Info() libnutcore.BackendInfo
 	Capabilities() common.CapabilitySet
+	GetPermissionSnapshot() (common.PermissionSnapshot, error)
+	GetFocusedWindow() (common.FocusedWindowMetadata, error)
+	GetFocusedElement() (common.UIElementMetadata, error)
+	GetElementAtPoint(position common.Point) (common.UIElementMetadata, error)
+	RaiseFocusedWindow() error
+	PerformFocusedElementAction(action common.AXAction) error
+	PerformElementActionAtPoint(position common.Point, action common.AXAction) error
+	FocusElementAtPoint(position common.Point) error
 	MoveMouse(position common.Point) error
 	GetMousePosition() (common.Point, error)
 	MouseClick(button common.MouseButton, double bool) error

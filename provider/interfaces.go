@@ -5,6 +5,7 @@ import (
 	"time"
 
 	gutlog "gut/log"
+	"gut/native/common"
 	"gut/shared"
 )
 
@@ -57,6 +58,18 @@ type WindowProvider interface {
 	ResizeWindow(ctx context.Context, windowHandle shared.WindowHandle, newSize shared.Size) (bool, error)
 	MinimizeWindow(ctx context.Context, windowHandle shared.WindowHandle) (bool, error)
 	RestoreWindow(ctx context.Context, windowHandle shared.WindowHandle) (bool, error)
+}
+
+type AccessibilityProvider interface {
+	GetPermissionSnapshot(ctx context.Context) (common.PermissionSnapshot, error)
+	GetFocusedWindow(ctx context.Context) (common.FocusedWindowMetadata, error)
+	GetFocusedElement(ctx context.Context) (common.UIElementMetadata, error)
+	GetElementAtPoint(ctx context.Context, point shared.Point) (common.UIElementMetadata, error)
+	RaiseFocusedWindow(ctx context.Context) error
+	PerformFocusedElementAction(ctx context.Context, action common.AXAction) error
+	PerformElementActionAtPoint(ctx context.Context, point shared.Point, action common.AXAction) error
+	FocusElementAtPoint(ctx context.Context, point shared.Point) error
+	Capabilities() common.CapabilitySet
 }
 
 type ImageFinder interface {

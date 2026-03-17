@@ -21,6 +21,16 @@ func TestCapabilitySetStatusAndSupports(t *testing.T) {
 	}
 }
 
+func TestCapabilitySetPermissionBlockedIsNotSupported(t *testing.T) {
+	set := NewCapabilitySet(
+		CapabilityStatus{Capability: CapabilityAXFocusedElementMetadata, Availability: AvailabilityPermissionBlocked, Reason: "Accessibility permission is not granted"},
+	)
+
+	if set.Supports(CapabilityAXFocusedElementMetadata) {
+		t.Fatal("expected permission-blocked capability to report unsupported")
+	}
+}
+
 func TestCapabilitySetListIsSorted(t *testing.T) {
 	set := NewCapabilitySet(
 		CapabilityStatus{Capability: CapabilityWindowResize, Availability: AvailabilityUnavailable},

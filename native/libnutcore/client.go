@@ -38,6 +38,14 @@ func DefaultOptions() Options {
 type Client interface {
 	Info() BackendInfo
 	Capabilities() common.CapabilitySet
+	GetPermissionSnapshot() (common.PermissionSnapshot, error)
+	GetFocusedWindow() (common.FocusedWindowMetadata, error)
+	RaiseFocusedWindow() error
+	GetFocusedElement() (common.UIElementMetadata, error)
+	PerformFocusedElementAction(action common.AXAction) error
+	GetElementAtPoint(position common.Point) (common.UIElementMetadata, error)
+	PerformElementActionAtPoint(position common.Point, action common.AXAction) error
+	FocusElementAtPoint(position common.Point) error
 
 	DragMouse(position common.Point, button common.MouseButton) error
 	MoveMouse(position common.Point) error

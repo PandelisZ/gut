@@ -27,6 +27,14 @@ func linkedCapabilities() common.CapabilitySet {
 		common.CapabilityStatus{Capability: common.CapabilityWindowResize, Availability: common.AvailabilityAvailable, Reason: "libnut-core native window bridge is linked via cgo"},
 		common.CapabilityStatus{Capability: common.CapabilityWindowMinimize, Availability: common.AvailabilityUnsupported, Reason: "libnut-core does not expose a native window minimize primitive"},
 		common.CapabilityStatus{Capability: common.CapabilityWindowRestore, Availability: common.AvailabilityUnsupported, Reason: "libnut-core does not expose a native window restore primitive"},
+		common.CapabilityStatus{Capability: common.CapabilityPermissionReadiness, Availability: common.AvailabilityUnsupported, Reason: "macOS permission introspection is only exposed on Darwin"},
+		common.CapabilityStatus{Capability: common.CapabilityAXFocusedWindowMetadata, Availability: common.AvailabilityUnsupported, Reason: "AX metadata inspection is only exposed on Darwin"},
+		common.CapabilityStatus{Capability: common.CapabilityAXFocusedElementMetadata, Availability: common.AvailabilityUnsupported, Reason: "AX metadata inspection is only exposed on Darwin"},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementAtPointMetadata, Availability: common.AvailabilityUnsupported, Reason: "AX metadata inspection is only exposed on Darwin"},
+		common.CapabilityStatus{Capability: common.CapabilityAXFocusedWindowRaise, Availability: common.AvailabilityUnsupported, Reason: "AX interaction primitives are only exposed on Darwin"},
+		common.CapabilityStatus{Capability: common.CapabilityAXFocusedElementAction, Availability: common.AvailabilityUnsupported, Reason: "AX interaction primitives are only exposed on Darwin"},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementActionAtPoint, Availability: common.AvailabilityUnsupported, Reason: "AX interaction primitives are only exposed on Darwin"},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementFocusAtPoint, Availability: common.AvailabilityUnsupported, Reason: "AX interaction primitives are only exposed on Darwin"},
 	)
 }
 
@@ -55,5 +63,13 @@ func unavailableCapabilities(reason string) common.CapabilitySet {
 		common.CapabilityStatus{Capability: common.CapabilityWindowResize, Availability: common.AvailabilityUnavailable, Reason: reason},
 		common.CapabilityStatus{Capability: common.CapabilityWindowMinimize, Availability: common.AvailabilityUnsupported, Reason: "libnut-core does not expose a native window minimize primitive"},
 		common.CapabilityStatus{Capability: common.CapabilityWindowRestore, Availability: common.AvailabilityUnsupported, Reason: "libnut-core does not expose a native window restore primitive"},
+		common.CapabilityStatus{Capability: common.CapabilityPermissionReadiness, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityAXFocusedWindowMetadata, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityAXFocusedElementMetadata, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementAtPointMetadata, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityAXFocusedWindowRaise, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityAXFocusedElementAction, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementActionAtPoint, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementFocusAtPoint, Availability: common.AvailabilityUnavailable, Reason: reason},
 	)
 }

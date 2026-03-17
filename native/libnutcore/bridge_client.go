@@ -47,6 +47,38 @@ func (c *bridgeClient) Capabilities() common.CapabilitySet {
 	return cloneCapabilities(c.capabilities)
 }
 
+func (c *bridgeClient) GetPermissionSnapshot() (common.PermissionSnapshot, error) {
+	return bridgeGetPermissionSnapshot()
+}
+
+func (c *bridgeClient) GetFocusedWindow() (common.FocusedWindowMetadata, error) {
+	return bridgeGetFocusedWindow()
+}
+
+func (c *bridgeClient) RaiseFocusedWindow() error {
+	return bridgeRaiseFocusedWindow()
+}
+
+func (c *bridgeClient) GetFocusedElement() (common.UIElementMetadata, error) {
+	return bridgeGetFocusedElement()
+}
+
+func (c *bridgeClient) PerformFocusedElementAction(action common.AXAction) error {
+	return bridgePerformFocusedElementAction(action)
+}
+
+func (c *bridgeClient) GetElementAtPoint(position common.Point) (common.UIElementMetadata, error) {
+	return bridgeGetElementAtPoint(position)
+}
+
+func (c *bridgeClient) PerformElementActionAtPoint(position common.Point, action common.AXAction) error {
+	return bridgePerformElementActionAtPoint(position, action)
+}
+
+func (c *bridgeClient) FocusElementAtPoint(position common.Point) error {
+	return bridgeFocusElementAtPoint(position)
+}
+
 func (c *bridgeClient) DragMouse(position common.Point, button common.MouseButton) error {
 	return bridgeDragMouse(position, button)
 }

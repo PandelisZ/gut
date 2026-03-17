@@ -34,11 +34,59 @@ typedef struct gut_bitmap {
 	unsigned char *image;
 } gut_bitmap;
 
+typedef struct gut_permission_snapshot {
+	int accessibility_granted;
+	int accessibility_supported;
+	int screen_recording_granted;
+	int screen_recording_supported;
+} gut_permission_snapshot;
+
+typedef struct gut_string_list {
+	char **items;
+	int64_t length;
+} gut_string_list;
+
+typedef struct gut_window_metadata {
+	int64_t handle;
+	char *title;
+	char *role;
+	char *subrole;
+	gut_rect rect;
+	int has_rect;
+	int focused;
+	int main;
+	int minimized;
+	int64_t owner_pid;
+	char *owner_name;
+	char *bundle_id;
+} gut_window_metadata;
+
+typedef struct gut_element_metadata {
+	char *role;
+	char *subrole;
+	char *title;
+	char *description;
+	char *value;
+	int enabled;
+	int focused;
+	gut_rect frame;
+	int has_frame;
+	gut_string_list actions;
+} gut_element_metadata;
+
 typedef struct gut_window_list {
 	int64_t *handles;
 	int64_t length;
 } gut_window_list;
 
+int gut_get_permission_snapshot(gut_permission_snapshot *snapshot);
+int gut_get_focused_window_metadata(gut_window_metadata *metadata);
+int gut_raise_focused_window(void);
+int gut_get_focused_element_metadata(gut_element_metadata *metadata);
+int gut_perform_focused_element_action(const char *action_token);
+int gut_get_element_metadata_at_point(int64_t x, int64_t y, gut_element_metadata *metadata);
+int gut_perform_element_action_at_point(int64_t x, int64_t y, const char *action_token);
+int gut_focus_element_at_point(int64_t x, int64_t y);
 int gut_drag_mouse(int64_t x, int64_t y, const char *button_token);
 int gut_move_mouse(int64_t x, int64_t y);
 int gut_get_mouse_pos(gut_point *point);
@@ -71,6 +119,8 @@ int gut_set_x_display_name(const char *name);
 void gut_free_string(char *value);
 void gut_free_bitmap(gut_bitmap *bitmap);
 void gut_free_window_list(gut_window_list *windows);
+void gut_free_window_metadata(gut_window_metadata *metadata);
+void gut_free_element_metadata(gut_element_metadata *metadata);
 
 #ifdef __cplusplus
 }

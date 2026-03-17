@@ -43,6 +43,38 @@ func (c *unavailableClient) Capabilities() common.CapabilitySet {
 	return cloneCapabilities(c.capabilities)
 }
 
+func (c *unavailableClient) GetPermissionSnapshot() (common.PermissionSnapshot, error) {
+	return common.PermissionSnapshot{}, c.unavailable("getPermissionSnapshot", common.CapabilityPermissionReadiness)
+}
+
+func (c *unavailableClient) GetFocusedWindow() (common.FocusedWindowMetadata, error) {
+	return common.FocusedWindowMetadata{}, c.unavailable("getFocusedWindow", common.CapabilityAXFocusedWindowMetadata)
+}
+
+func (c *unavailableClient) RaiseFocusedWindow() error {
+	return c.capabilityError("raiseFocusedWindow", common.CapabilityAXFocusedWindowRaise)
+}
+
+func (c *unavailableClient) GetFocusedElement() (common.UIElementMetadata, error) {
+	return common.UIElementMetadata{}, c.unavailable("getFocusedElement", common.CapabilityAXFocusedElementMetadata)
+}
+
+func (c *unavailableClient) PerformFocusedElementAction(action common.AXAction) error {
+	return c.capabilityError("performFocusedElementAction", common.CapabilityAXFocusedElementAction)
+}
+
+func (c *unavailableClient) GetElementAtPoint(position common.Point) (common.UIElementMetadata, error) {
+	return common.UIElementMetadata{}, c.unavailable("getElementAtPoint", common.CapabilityAXElementAtPointMetadata)
+}
+
+func (c *unavailableClient) PerformElementActionAtPoint(position common.Point, action common.AXAction) error {
+	return c.capabilityError("performElementActionAtPoint", common.CapabilityAXElementActionAtPoint)
+}
+
+func (c *unavailableClient) FocusElementAtPoint(position common.Point) error {
+	return c.capabilityError("focusElementAtPoint", common.CapabilityAXElementFocusAtPoint)
+}
+
 func (c *unavailableClient) DragMouse(position common.Point, button common.MouseButton) error {
 	return c.unavailable("dragMouse", common.CapabilityMouseDrag)
 }
@@ -164,6 +196,12 @@ func (c *unavailableClient) unavailable(operation string, capability common.Capa
 	if detail == "" {
 		detail = "native backend unavailable"
 	}
+	if status.Availability == common.AvailabilityPermissionBlocked {
+		return common.PermissionDeniedOperation(operation, c.platform, capability, detail)
+	}
+	if status.Availability == common.AvailabilityUnsupported {
+		return common.UnsupportedOperation(operation, c.platform, capability, detail)
+	}
 	return common.UnavailableOperation(operation, c.platform, capability, detail)
 }
 
@@ -172,6 +210,9 @@ func (c *unavailableClient) capabilityError(operation string, capability common.
 	detail := status.Reason
 	if detail == "" {
 		detail = "native capability unavailable"
+	}
+	if status.Availability == common.AvailabilityPermissionBlocked {
+		return common.PermissionDeniedOperation(operation, c.platform, capability, detail)
 	}
 	if status.Availability == common.AvailabilityUnsupported {
 		return common.CapabilityUnavailable(operation, c.platform, capability, detail)

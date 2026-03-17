@@ -9,8 +9,43 @@ import (
 	"time"
 
 	gutlog "gut/log"
+	"gut/native/common"
 	"gut/shared"
 )
+
+type stubAccessibilityProvider struct{}
+
+func (s *stubAccessibilityProvider) GetPermissionSnapshot(context.Context) (common.PermissionSnapshot, error) {
+	return common.PermissionSnapshot{}, nil
+}
+
+func (s *stubAccessibilityProvider) GetFocusedWindow(context.Context) (common.FocusedWindowMetadata, error) {
+	return common.FocusedWindowMetadata{}, nil
+}
+
+func (s *stubAccessibilityProvider) GetFocusedElement(context.Context) (common.UIElementMetadata, error) {
+	return common.UIElementMetadata{}, nil
+}
+
+func (s *stubAccessibilityProvider) GetElementAtPoint(context.Context, shared.Point) (common.UIElementMetadata, error) {
+	return common.UIElementMetadata{}, nil
+}
+
+func (s *stubAccessibilityProvider) RaiseFocusedWindow(context.Context) error { return nil }
+
+func (s *stubAccessibilityProvider) PerformFocusedElementAction(context.Context, common.AXAction) error {
+	return nil
+}
+
+func (s *stubAccessibilityProvider) PerformElementActionAtPoint(context.Context, shared.Point, common.AXAction) error {
+	return nil
+}
+
+func (s *stubAccessibilityProvider) FocusElementAtPoint(context.Context, shared.Point) error {
+	return nil
+}
+
+func (s *stubAccessibilityProvider) Capabilities() common.CapabilitySet { return nil }
 
 type stubKeyboardProvider struct{}
 
@@ -35,6 +70,9 @@ func TestRegistryReturnsStableMissingProviderErrors(t *testing.T) {
 	}
 	if _, err := registry.Clipboard(); !errors.Is(err, ErrMissingClipboardProvider) {
 		t.Fatalf("expected clipboard missing error, got %v", err)
+	}
+	if _, err := registry.Accessibility(); !errors.Is(err, ErrMissingAccessibilityProvider) {
+		t.Fatalf("expected accessibility missing error, got %v", err)
 	}
 }
 
@@ -63,13 +101,23 @@ func TestRegistryReturnsRegisteredLogger(t *testing.T) {
 func TestRegistryReturnsRegisteredProviders(t *testing.T) {
 	registry := NewRegistry()
 	keyboard := &stubKeyboardProvider{}
+	accessibility := &stubAccessibilityProvider{}
 	registry.RegisterKeyboard(keyboard)
+	registry.RegisterAccessibility(accessibility)
 
-	resolved, err := registry.Keyboard()
+	resolvedKeyboard, err := registry.Keyboard()
 	if err != nil {
 		t.Fatalf("unexpected keyboard lookup error: %v", err)
 	}
-	if resolved != keyboard {
+	if resolvedKeyboard != keyboard {
 		t.Fatal("expected the registered keyboard provider to be returned")
+	}
+
+	resolvedAccessibility, err := registry.Accessibility()
+	if err != nil {
+		t.Fatalf("unexpected accessibility lookup error: %v", err)
+	}
+	if resolvedAccessibility != accessibility {
+		t.Fatal("expected the registered accessibility provider to be returned")
 	}
 }
