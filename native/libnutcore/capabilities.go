@@ -35,6 +35,9 @@ func linkedCapabilities() common.CapabilitySet {
 		common.CapabilityStatus{Capability: common.CapabilityAXFocusedElementAction, Availability: common.AvailabilityUnsupported, Reason: "AX interaction primitives are only exposed on Darwin"},
 		common.CapabilityStatus{Capability: common.CapabilityAXElementActionAtPoint, Availability: common.AvailabilityUnsupported, Reason: "AX interaction primitives are only exposed on Darwin"},
 		common.CapabilityStatus{Capability: common.CapabilityAXElementFocusAtPoint, Availability: common.AvailabilityUnsupported, Reason: "AX interaction primitives are only exposed on Darwin"},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementSearch, Availability: common.AvailabilityUnsupported, Reason: "AX interaction primitives are only exposed on Darwin"},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementFocusMatch, Availability: common.AvailabilityUnsupported, Reason: "AX interaction primitives are only exposed on Darwin"},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementActionMatch, Availability: common.AvailabilityUnsupported, Reason: "AX interaction primitives are only exposed on Darwin"},
 	)
 }
 
@@ -71,5 +74,8 @@ func unavailableCapabilities(reason string) common.CapabilitySet {
 		common.CapabilityStatus{Capability: common.CapabilityAXFocusedElementAction, Availability: common.AvailabilityUnavailable, Reason: reason},
 		common.CapabilityStatus{Capability: common.CapabilityAXElementActionAtPoint, Availability: common.AvailabilityUnavailable, Reason: reason},
 		common.CapabilityStatus{Capability: common.CapabilityAXElementFocusAtPoint, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementSearch, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementFocusMatch, Availability: common.AvailabilityUnavailable, Reason: reason},
+		common.CapabilityStatus{Capability: common.CapabilityAXElementActionMatch, Availability: common.AvailabilityUnavailable, Reason: reason},
 	)
 }

@@ -204,6 +204,43 @@ func bridgeFocusElementAtPoint(position common.Point) error {
 	return bridgeAXInteractionError("focusElementAtPoint", common.CapabilityAXElementFocusAtPoint, int(C.gut_focus_element_at_point(C.int64_t(position.X), C.int64_t(position.Y))), "no AX element is available at the requested point or it does not expose a settable AXFocused attribute")
 }
 
+func bridgeSearchAXElements(query common.AXElementSearchQuery) ([]common.AXElementMatch, error) {
+	if err := validateAXElementSearchQuery(query); err != nil {
+		return nil, err
+	}
+	cQuery, freeQuery := makeAXElementSearchQuery(query)
+	defer freeQuery()
+	var matches C.gut_ax_element_match_list
+	if err := bridgeStatusError("searchAXElements", common.CapabilityAXElementSearch, int(C.gut_search_ax_elements(&cQuery, &matches))); err != nil {
+		return nil, err
+	}
+	defer C.gut_free_ax_element_match_list(&matches)
+	return convertAXElementMatchList(matches), nil
+}
+
+func bridgeFocusAXElement(ref common.AXElementRef) error {
+	if err := validateAXElementRef(ref, "focusAXElement", common.CapabilityAXElementFocusMatch); err != nil {
+		return err
+	}
+	cRef, freeRef := makeAXElementRef(ref)
+	defer freeRef()
+	return bridgeAXInteractionError("focusAXElement", common.CapabilityAXElementFocusMatch, int(C.gut_focus_ax_element(&cRef)), "the AX element reference could not be resolved or the element does not expose a settable AXFocused attribute")
+}
+
+func bridgePerformAXElementAction(ref common.AXElementRef, action common.AXAction) error {
+	if err := validateAXElementRef(ref, "performAXElementAction", common.CapabilityAXElementActionMatch); err != nil {
+		return err
+	}
+	if err := validateAXAction(action, "performAXElementAction", common.CapabilityAXElementActionMatch); err != nil {
+		return err
+	}
+	cRef, freeRef := makeAXElementRef(ref)
+	defer freeRef()
+	cAction := C.CString(string(action))
+	defer C.free(unsafe.Pointer(cAction))
+	return bridgeAXInteractionError("performAXElementAction", common.CapabilityAXElementActionMatch, int(C.gut_perform_ax_element_action(&cRef, cAction)), "the AX element reference could not be resolved or the element does not support the requested AX action")
+}
+
 func bridgeGetScreenSize() (common.Size, error) {
 	var size C.gut_size
 	if err := bridgeStatusError("getScreenSize", common.CapabilityScreenSize, int(C.gut_get_screen_size(&size))); err != nil {
@@ -361,6 +398,146 @@ func convertElementMetadata(metadata C.gut_element_metadata) common.UIElementMet
 		FrameKnown:  metadata.has_frame != 0,
 		Actions:     actions,
 	}
+}
+
+func convertAXElementMatchList(matches C.gut_ax_element_match_list) []common.AXElementMatch {
+	result := make([]common.AXElementMatch, 0, int(matches.length))
+	if matches.length == 0 || matches.items == nil {
+		return result
+	}
+	values := unsafe.Slice((*C.gut_ax_element_match)(unsafe.Pointer(matches.items)), int(matches.length))
+	for _, match := range values {
+		result = append(result, convertAXElementMatch(match))
+	}
+	return result
+}
+
+func convertAXElementMatch(match C.gut_ax_element_match) common.AXElementMatch {
+	return common.AXElementMatch{
+		Ref:              convertAXElementRef(match.ref),
+		Metadata:         convertElementMetadata(match.metadata),
+		Depth:            int(match.depth),
+		ActionPoint:      common.Point{X: int(match.action_point.x), Y: int(match.action_point.y)},
+		ActionPointKnown: match.has_action_point != 0,
+	}
+}
+
+func convertAXElementRef(ref C.gut_ax_element_ref) common.AXElementRef {
+	path := make([]int, 0, int(ref.path.length))
+	if ref.path.length > 0 && ref.path.items != nil {
+		values := unsafe.Slice((*C.int64_t)(unsafe.Pointer(ref.path.items)), int(ref.path.length))
+		for _, value := range values {
+			path = append(path, int(value))
+		}
+	}
+	return common.AXElementRef{
+		Scope:        common.AXSearchScope(cStringToGo(ref.scope)),
+		OwnerPID:     int(ref.owner_pid),
+		WindowHandle: common.WindowHandle(ref.window_handle),
+		Path:         path,
+	}
+}
+
+func makeAXElementSearchQuery(query common.AXElementSearchQuery) (C.gut_ax_element_search_query, func()) {
+	cQuery := C.gut_ax_element_search_query{
+		scope:                makeCStringOrNil(string(query.Scope)),
+		role:                 makeCStringOrNil(query.Role),
+		subrole:              makeCStringOrNil(query.Subrole),
+		title_contains:       makeCStringOrNil(query.TitleContains),
+		value_contains:       makeCStringOrNil(query.ValueContains),
+		description_contains: makeCStringOrNil(query.DescriptionContains),
+		action:               makeCStringOrNil(query.Action),
+		enabled_state:        boolPointerToTristate(query.Enabled),
+		focused_state:        boolPointerToTristate(query.Focused),
+		limit:                C.int64_t(query.Limit),
+		max_depth:            C.int64_t(query.MaxDepth),
+	}
+	return cQuery, func() {
+		freeCString(cQuery.scope)
+		freeCString(cQuery.role)
+		freeCString(cQuery.subrole)
+		freeCString(cQuery.title_contains)
+		freeCString(cQuery.value_contains)
+		freeCString(cQuery.description_contains)
+		freeCString(cQuery.action)
+	}
+}
+
+func makeAXElementRef(ref common.AXElementRef) (C.gut_ax_element_ref, func()) {
+	cRef := C.gut_ax_element_ref{
+		scope:         makeCStringOrNil(string(ref.Scope)),
+		owner_pid:     C.int64_t(ref.OwnerPID),
+		window_handle: C.int64_t(ref.WindowHandle),
+	}
+	if len(ref.Path) > 0 {
+		items := C.malloc(C.size_t(len(ref.Path)) * C.size_t(unsafe.Sizeof(C.int64_t(0))))
+		if items != nil {
+			slice := unsafe.Slice((*C.int64_t)(items), len(ref.Path))
+			for index, value := range ref.Path {
+				slice[index] = C.int64_t(value)
+			}
+			cRef.path.items = (*C.int64_t)(items)
+			cRef.path.length = C.int64_t(len(ref.Path))
+		}
+	}
+	return cRef, func() {
+		freeCString(cRef.scope)
+		if cRef.path.items != nil {
+			C.free(unsafe.Pointer(cRef.path.items))
+		}
+	}
+}
+
+func makeCStringOrNil(value string) *C.char {
+	if value == "" {
+		return nil
+	}
+	return C.CString(value)
+}
+
+func freeCString(value *C.char) {
+	if value != nil {
+		C.free(unsafe.Pointer(value))
+	}
+}
+
+func boolPointerToTristate(value *bool) C.int {
+	if value == nil {
+		return -1
+	}
+	if *value {
+		return 1
+	}
+	return 0
+}
+
+func validateAXElementSearchQuery(query common.AXElementSearchQuery) error {
+	switch query.Scope {
+	case common.AXSearchScopeFocusedWindow, common.AXSearchScopeFrontmostApplication:
+	default:
+		return fmt.Errorf("%w: searchAXElements [%s]", common.ErrInvalidToken, common.CapabilityAXElementSearch)
+	}
+	if query.Limit <= 0 {
+		return fmt.Errorf("%w: searchAXElements [%s]", common.ErrInvalidToken, common.CapabilityAXElementSearch)
+	}
+	if query.MaxDepth < 0 {
+		return fmt.Errorf("%w: searchAXElements [%s]", common.ErrInvalidToken, common.CapabilityAXElementSearch)
+	}
+	return nil
+}
+
+func validateAXElementRef(ref common.AXElementRef, operation string, capability common.Capability) error {
+	switch ref.Scope {
+	case common.AXSearchScopeFocusedWindow, common.AXSearchScopeFrontmostApplication:
+	default:
+		return fmt.Errorf("%w: %s [%s]", common.ErrInvalidToken, operation, capability)
+	}
+	for _, index := range ref.Path {
+		if index < 0 {
+			return fmt.Errorf("%w: %s [%s]", common.ErrInvalidToken, operation, capability)
+		}
+	}
+	return nil
 }
 
 func cStringToGo(value *C.char) string {

@@ -38,6 +38,9 @@ const (
 	CapabilityAXFocusedElementAction   Capability = "ax.element.action.focused"
 	CapabilityAXElementActionAtPoint   Capability = "ax.element.action.at_point"
 	CapabilityAXElementFocusAtPoint    Capability = "ax.element.focus.at_point"
+	CapabilityAXElementSearch          Capability = "ax.element.search"
+	CapabilityAXElementFocusMatch      Capability = "ax.element.focus.match"
+	CapabilityAXElementActionMatch     Capability = "ax.element.action.match"
 )
 
 type Availability string

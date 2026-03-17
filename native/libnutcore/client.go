@@ -46,6 +46,9 @@ type Client interface {
 	GetElementAtPoint(position common.Point) (common.UIElementMetadata, error)
 	PerformElementActionAtPoint(position common.Point, action common.AXAction) error
 	FocusElementAtPoint(position common.Point) error
+	SearchAXElements(query common.AXElementSearchQuery) ([]common.AXElementMatch, error)
+	FocusAXElement(ref common.AXElementRef) error
+	PerformAXElementAction(ref common.AXElementRef, action common.AXAction) error
 
 	DragMouse(position common.Point, button common.MouseButton) error
 	MoveMouse(position common.Point) error

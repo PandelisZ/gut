@@ -6,4 +6,5 @@ func RegisterLibnutcoreProviders(registry *Registry, client libnutcoreClient) {
 	registry.RegisterScreen(NewLibnutcoreScreenProvider(client))
 	registry.RegisterWindow(NewLibnutcoreWindowProvider(client))
 	registry.RegisterAccessibility(NewLibnutcoreAccessibilityProvider(client))
+	registry.RegisterElementInspection(NewLibnutcoreElementInspectionProvider(client))
 }

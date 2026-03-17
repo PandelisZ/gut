@@ -71,6 +71,27 @@ func (p *libnutcoreAccessibilityProvider) FocusElementAtPoint(ctx context.Contex
 	return p.client.FocusElementAtPoint(pointToNative(point))
 }
 
+func (p *libnutcoreAccessibilityProvider) SearchAXElements(ctx context.Context, query common.AXElementSearchQuery) ([]common.AXElementMatch, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return p.client.SearchAXElements(query)
+}
+
+func (p *libnutcoreAccessibilityProvider) FocusAXElement(ctx context.Context, ref common.AXElementRef) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return p.client.FocusAXElement(ref)
+}
+
+func (p *libnutcoreAccessibilityProvider) PerformAXElementAction(ctx context.Context, ref common.AXElementRef, action common.AXAction) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return p.client.PerformAXElementAction(ref, action)
+}
+
 func (p *libnutcoreAccessibilityProvider) Capabilities() common.CapabilitySet {
 	return p.client.Capabilities()
 }

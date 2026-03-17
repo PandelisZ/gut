@@ -107,6 +107,9 @@ func TestAXInteractionCapabilitiesAreDeclared(t *testing.T) {
 		common.CapabilityAXFocusedElementAction,
 		common.CapabilityAXElementActionAtPoint,
 		common.CapabilityAXElementFocusAtPoint,
+		common.CapabilityAXElementSearch,
+		common.CapabilityAXElementFocusMatch,
+		common.CapabilityAXElementActionMatch,
 	} {
 		if status := linked.Status(capability); status.Availability != common.AvailabilityUnsupported {
 			t.Fatalf("expected linked %s to be unsupported off-Darwin by default, got %s", capability, status.Availability)

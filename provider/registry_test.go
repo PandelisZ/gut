@@ -45,6 +45,18 @@ func (s *stubAccessibilityProvider) FocusElementAtPoint(context.Context, shared.
 	return nil
 }
 
+func (s *stubAccessibilityProvider) SearchAXElements(context.Context, common.AXElementSearchQuery) ([]common.AXElementMatch, error) {
+	return nil, nil
+}
+
+func (s *stubAccessibilityProvider) FocusAXElement(context.Context, common.AXElementRef) error {
+	return nil
+}
+
+func (s *stubAccessibilityProvider) PerformAXElementAction(context.Context, common.AXElementRef, common.AXAction) error {
+	return nil
+}
+
 func (s *stubAccessibilityProvider) Capabilities() common.CapabilitySet { return nil }
 
 type stubKeyboardProvider struct{}

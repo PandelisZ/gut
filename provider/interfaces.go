@@ -69,6 +69,9 @@ type AccessibilityProvider interface {
 	PerformFocusedElementAction(ctx context.Context, action common.AXAction) error
 	PerformElementActionAtPoint(ctx context.Context, point shared.Point, action common.AXAction) error
 	FocusElementAtPoint(ctx context.Context, point shared.Point) error
+	SearchAXElements(ctx context.Context, query common.AXElementSearchQuery) ([]common.AXElementMatch, error)
+	FocusAXElement(ctx context.Context, ref common.AXElementRef) error
+	PerformAXElementAction(ctx context.Context, ref common.AXElementRef, action common.AXAction) error
 	Capabilities() common.CapabilitySet
 }
 

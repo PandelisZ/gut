@@ -1,6 +1,9 @@
 #include "accessibility_darwin.h"
 #include "bridge_shim_common.h"
 
+#include <algorithm>
+#include <deque>
+#include <vector>
 #include <dlfcn.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,8 +21,275 @@ const useconds_t gut_ax_focus_retry_delay_usec = 20000;
 
 int gut_ax_get_system_value(CFStringRef attribute, AXUIElementRef *element);
 int gut_ax_copy_focused_application(AXUIElementRef *application);
+int gut_ax_copy_focused_window(AXUIElementRef *window);
 int gut_ax_copy_focused_window_from_application(AXUIElementRef application, AXUIElementRef *window);
 int gut_ax_copy_attribute_element_with_retry(AXUIElementRef source, CFStringRef attribute, AXUIElementRef *element);
+NSString *gut_ax_action_token_to_ns_string(const char *action_token);
+bool gut_ax_action_supported(AXUIElementRef element, NSString *action_name);
+bool gut_ax_copy_rect(AXUIElementRef element, gut_rect *rect);
+int64_t gut_ax_window_number(AXUIElementRef element);
+int64_t gut_ax_find_window_number(pid_t pid, gut_rect rect, bool has_rect);
+
+struct gut_ax_root_resolution {
+	AXUIElementRef root;
+	pid_t owner_pid;
+	int64_t window_handle;
+};
+
+struct gut_ax_search_visit {
+	AXUIElementRef element;
+	std::vector<int64_t> path;
+	int depth;
+};
+
+bool gut_ax_scope_equals(const char *scope, const char *expected) {
+	return scope != NULL && strcmp(scope, expected) == 0;
+}
+
+bool gut_ax_matches_case_insensitive_contains(char *candidate, char *needle) {
+	if (needle == NULL || needle[0] == '\0') {
+		return true;
+	}
+	if (candidate == NULL || candidate[0] == '\0') {
+		return false;
+	}
+		NSString *candidate_string = [NSString stringWithUTF8String:candidate];
+		NSString *needle_string = [NSString stringWithUTF8String:needle];
+		if (candidate_string == nil || needle_string == nil) {
+			return false;
+		}
+		return [candidate_string rangeOfString:needle_string options:(NSCaseInsensitiveSearch | NSDiacriticInsensitiveSearch)].location != NSNotFound;
+}
+
+bool gut_ax_element_has_action(AXUIElementRef element, const char *action_token) {
+	if (action_token == NULL || action_token[0] == '\0') {
+		return true;
+	}
+	NSString *action_name = gut_ax_action_token_to_ns_string(action_token);
+	return gut_ax_action_supported(element, action_name);
+}
+
+bool gut_ax_matches_bool_filter(int actual, int filter_state) {
+	if (filter_state < 0) {
+		return true;
+	}
+	return actual == filter_state;
+}
+
+bool gut_ax_matches_query(AXUIElementRef element, gut_element_metadata *metadata, const gut_ax_element_search_query *query) {
+	if (element == NULL || metadata == NULL || query == NULL) {
+		return false;
+	}
+	if (query->role != NULL && query->role[0] != '\0' && (metadata->role == NULL || strcmp(metadata->role, query->role) != 0)) {
+		return false;
+	}
+	if (query->subrole != NULL && query->subrole[0] != '\0' && (metadata->subrole == NULL || strcmp(metadata->subrole, query->subrole) != 0)) {
+		return false;
+	}
+	if (!gut_ax_matches_case_insensitive_contains(metadata->title, query->title_contains)) {
+		return false;
+	}
+	if (!gut_ax_matches_case_insensitive_contains(metadata->value, query->value_contains)) {
+		return false;
+	}
+	if (!gut_ax_matches_case_insensitive_contains(metadata->description, query->description_contains)) {
+		return false;
+	}
+	if (!gut_ax_matches_bool_filter(metadata->enabled, query->enabled_state)) {
+		return false;
+	}
+	if (!gut_ax_matches_bool_filter(metadata->focused, query->focused_state)) {
+		return false;
+	}
+	if (!gut_ax_element_has_action(element, query->action)) {
+		return false;
+	}
+	return true;
+}
+
+bool gut_ax_copy_children(AXUIElementRef element, std::vector<AXUIElementRef> *children) {
+	if (element == NULL || children == NULL) {
+		return false;
+	}
+	children->clear();
+	CFTypeRef value = NULL;
+	AXError ax_error = AXUIElementCopyAttributeValue(element, kAXChildrenAttribute, &value);
+	if (ax_error != kAXErrorSuccess || value == NULL) {
+		if (value != NULL) {
+			CFRelease(value);
+		}
+		return false;
+	}
+	if (CFGetTypeID(value) != CFArrayGetTypeID()) {
+		CFRelease(value);
+		return false;
+	}
+	CFArrayRef array = (CFArrayRef)value;
+	CFIndex count = CFArrayGetCount(array);
+	children->reserve((size_t)count);
+	for (CFIndex index = 0; index < count; index++) {
+		CFTypeRef item = CFArrayGetValueAtIndex(array, index);
+		if (item == NULL || CFGetTypeID(item) != AXUIElementGetTypeID()) {
+			continue;
+		}
+		AXUIElementRef child = (AXUIElementRef)item;
+		CFRetain(child);
+		children->push_back(child);
+	}
+	CFRelease(value);
+	return true;
+}
+
+void gut_ax_release_children(std::vector<AXUIElementRef> *children) {
+	if (children == NULL) {
+		return;
+	}
+	for (AXUIElementRef child : *children) {
+		if (child != NULL) {
+			CFRelease(child);
+		}
+	}
+	children->clear();
+}
+
+void gut_ax_fill_action_point(gut_element_metadata *metadata, gut_point *point, int *has_action_point) {
+	if (point == NULL || has_action_point == NULL) {
+		return;
+	}
+	*has_action_point = 0;
+	if (metadata == NULL || metadata->has_frame == 0 || metadata->frame.width <= 0 || metadata->frame.height <= 0) {
+		return;
+	}
+	point->x = metadata->frame.x + metadata->frame.width / 2;
+	point->y = metadata->frame.y + metadata->frame.height / 2;
+	*has_action_point = 1;
+}
+
+void gut_ax_fill_element_ref(gut_ax_element_ref *ref, const char *scope, pid_t owner_pid, int64_t window_handle, const std::vector<int64_t> &path) {
+	if (ref == NULL) {
+		return;
+	}
+	memset(ref, 0, sizeof(*ref));
+	ref->scope = gut_copy_c_string(scope == NULL ? "" : scope);
+	ref->owner_pid = owner_pid;
+	ref->window_handle = window_handle;
+	if (!path.empty()) {
+		ref->path.items = (int64_t *)calloc(path.size(), sizeof(int64_t));
+		if (ref->path.items != NULL) {
+			ref->path.length = (int64_t)path.size();
+			for (size_t index = 0; index < path.size(); index++) {
+				ref->path.items[index] = path[index];
+			}
+		}
+	}
+}
+
+int gut_ax_resolve_root(const char *scope, gut_ax_root_resolution *resolution) {
+	if (scope == NULL || scope[0] == '\0' || resolution == NULL) {
+		return 1;
+	}
+	memset(resolution, 0, sizeof(*resolution));
+	if (gut_ax_scope_equals(scope, "focused_window")) {
+		int status = gut_ax_copy_focused_window(&resolution->root);
+		if (status == 4) {
+			return 0;
+		}
+		if (status != 0) {
+			return status;
+		}
+		AXUIElementGetPid(resolution->root, &resolution->owner_pid);
+		resolution->window_handle = gut_ax_window_number(resolution->root);
+		if (resolution->window_handle == 0 && resolution->owner_pid > 0) {
+			gut_rect rect = {};
+			bool has_rect = gut_ax_copy_rect(resolution->root, &rect);
+			resolution->window_handle = gut_ax_find_window_number(resolution->owner_pid, rect, has_rect);
+		}
+		return 0;
+	}
+	if (gut_ax_scope_equals(scope, "frontmost_application")) {
+		int status = gut_ax_copy_focused_application(&resolution->root);
+		if (status == 4) {
+			return 0;
+		}
+		if (status != 0) {
+			return status;
+		}
+		AXUIElementGetPid(resolution->root, &resolution->owner_pid);
+		resolution->window_handle = 0;
+		return 0;
+	}
+	return 1;
+}
+
+int gut_ax_resolve_ref_element(const gut_ax_element_ref *ref, AXUIElementRef *element) {
+	if (ref == NULL || element == NULL) {
+		return 1;
+	}
+	*element = NULL;
+	gut_ax_root_resolution resolution = {};
+	int status = gut_ax_resolve_root(ref->scope, &resolution);
+	if (status != 0) {
+		return status;
+	}
+	if (resolution.root == NULL) {
+		return 4;
+	}
+	if (ref->owner_pid > 0 && resolution.owner_pid > 0 && ref->owner_pid != resolution.owner_pid) {
+		CFRelease(resolution.root);
+		return 4;
+	}
+	if (gut_ax_scope_equals(ref->scope, "focused_window") && ref->window_handle != 0 && resolution.window_handle != 0 && ref->window_handle != resolution.window_handle) {
+		CFRelease(resolution.root);
+		return 4;
+	}
+	AXUIElementRef current = resolution.root;
+	for (int64_t depth = 0; depth < ref->path.length; depth++) {
+		int64_t child_index = ref->path.items[depth];
+		if (child_index < 0) {
+			CFRelease(current);
+			return 1;
+		}
+		std::vector<AXUIElementRef> children;
+		gut_ax_copy_children(current, &children);
+		if (child_index >= (int64_t)children.size()) {
+			gut_ax_release_children(&children);
+			CFRelease(current);
+			return 4;
+		}
+		AXUIElementRef next = children[(size_t)child_index];
+		CFRetain(next);
+		gut_ax_release_children(&children);
+		CFRelease(current);
+		current = next;
+	}
+	*element = current;
+	return 0;
+}
+
+int gut_ax_validate_search_query(const gut_ax_element_search_query *query) {
+	if (query == NULL) {
+		return 1;
+	}
+	if (query->scope == NULL || query->scope[0] == '\0') {
+		return 1;
+	}
+	if (!gut_ax_scope_equals(query->scope, "focused_window") && !gut_ax_scope_equals(query->scope, "frontmost_application")) {
+		return 1;
+	}
+	if (query->limit <= 0) {
+		return 1;
+	}
+	if (query->max_depth < 0) {
+		return 1;
+	}
+	if (query->enabled_state < -1 || query->enabled_state > 1) {
+		return 1;
+	}
+	if (query->focused_state < -1 || query->focused_state > 1) {
+		return 1;
+	}
+	return 0;
+}
 
 bool gut_ax_error_is_transient(AXError ax_error, CFTypeRef value) {
 	return ax_error == kAXErrorNoValue || ax_error == kAXErrorCannotComplete || (ax_error == kAXErrorSuccess && value == NULL);
@@ -687,6 +957,139 @@ int gut_darwin_focus_element_at_point(int64_t x, int64_t y) {
 	}
 }
 
+int gut_darwin_search_ax_elements(const gut_ax_element_search_query *query, gut_ax_element_match_list *matches) {
+	if (matches == NULL) {
+		return 2;
+	}
+	memset(matches, 0, sizeof(*matches));
+	if (!gut_darwin_accessibility_permission_granted()) {
+		return 5;
+	}
+	if (gut_ax_validate_search_query(query) != 0) {
+		return 1;
+	}
+	@autoreleasepool {
+		gut_ax_root_resolution resolution = {};
+		int status = gut_ax_resolve_root(query->scope, &resolution);
+		if (status != 0) {
+			return status;
+		}
+		if (resolution.root == NULL) {
+			return 0;
+		}
+
+		std::deque<gut_ax_search_visit> queue;
+		queue.push_back(gut_ax_search_visit{resolution.root, std::vector<int64_t>(), 0});
+		std::vector<gut_ax_element_match> collected;
+		collected.reserve((size_t)std::min<int64_t>(query->limit, 32));
+
+		while (!queue.empty() && (int64_t)collected.size() < query->limit) {
+			gut_ax_search_visit visit = queue.front();
+			queue.pop_front();
+
+			gut_element_metadata metadata = {};
+			gut_ax_fill_element_metadata(visit.element, &metadata);
+			if (gut_ax_matches_query(visit.element, &metadata, query)) {
+				gut_ax_element_match match = {};
+				gut_ax_fill_element_ref(&match.ref, query->scope, resolution.owner_pid, resolution.window_handle, visit.path);
+				match.metadata = metadata;
+				match.depth = visit.depth;
+				gut_ax_fill_action_point(&match.metadata, &match.action_point, &match.has_action_point);
+				collected.push_back(match);
+			} else {
+				gut_darwin_free_element_metadata(&metadata);
+			}
+
+			if (visit.depth < query->max_depth) {
+				std::vector<AXUIElementRef> children;
+				gut_ax_copy_children(visit.element, &children);
+				for (size_t index = 0; index < children.size(); index++) {
+					AXUIElementRef child = children[index];
+					std::vector<int64_t> child_path = visit.path;
+					child_path.push_back((int64_t)index);
+					queue.push_back(gut_ax_search_visit{child, child_path, visit.depth + 1});
+				}
+				children.clear();
+			}
+
+			CFRelease(visit.element);
+		}
+
+		while (!queue.empty()) {
+			gut_ax_search_visit visit = queue.front();
+			queue.pop_front();
+			CFRelease(visit.element);
+		}
+
+		if (!collected.empty()) {
+			matches->items = (gut_ax_element_match *)calloc(collected.size(), sizeof(gut_ax_element_match));
+			if (matches->items == NULL) {
+				for (size_t index = 0; index < collected.size(); index++) {
+					gut_darwin_free_ax_element_match(&collected[index]);
+				}
+				return 2;
+			}
+			matches->length = (int64_t)collected.size();
+			for (size_t index = 0; index < collected.size(); index++) {
+				matches->items[index] = collected[index];
+			}
+		}
+		return 0;
+	}
+}
+
+int gut_darwin_focus_ax_element(const gut_ax_element_ref *ref) {
+	if (!gut_darwin_accessibility_permission_granted()) {
+		return 5;
+	}
+	if (ref == NULL || ref->scope == NULL || ref->scope[0] == '\0') {
+		return 1;
+	}
+	@autoreleasepool {
+		AXUIElementRef element = NULL;
+		int status = gut_ax_resolve_ref_element(ref, &element);
+		if (status != 0) {
+			return status == 4 ? 4 : status;
+		}
+		Boolean settable = false;
+		AXError ax_error = AXUIElementIsAttributeSettable(element, kAXFocusedAttribute, &settable);
+		if (ax_error != kAXErrorSuccess || !settable) {
+			CFRelease(element);
+			return 4;
+		}
+		ax_error = AXUIElementSetAttributeValue(element, kAXFocusedAttribute, kCFBooleanTrue);
+		if (ax_error == kAXErrorSuccess) {
+			gut_ax_wait_for_focused_element(element);
+			CFRelease(element);
+			return 0;
+		}
+		CFRelease(element);
+		if (ax_error == kAXErrorAttributeUnsupported || ax_error == kAXErrorNoValue || ax_error == kAXErrorCannotComplete) {
+			return 4;
+		}
+		return 2;
+	}
+}
+
+int gut_darwin_perform_ax_element_action(const gut_ax_element_ref *ref, const char *action_token) {
+	if (!gut_darwin_accessibility_permission_granted()) {
+		return 5;
+	}
+	if (ref == NULL || ref->scope == NULL || ref->scope[0] == '\0' || action_token == NULL || action_token[0] == '\0') {
+		return 1;
+	}
+	@autoreleasepool {
+		AXUIElementRef element = NULL;
+		int status = gut_ax_resolve_ref_element(ref, &element);
+		if (status != 0) {
+			return status == 4 ? 4 : status;
+		}
+		status = gut_ax_perform_action(element, action_token);
+		CFRelease(element);
+		return status;
+	}
+}
+
 void gut_darwin_free_window_metadata(gut_window_metadata *metadata) {
 	if (metadata == NULL) {
 		return;
@@ -713,6 +1116,35 @@ void gut_darwin_free_element_metadata(gut_element_metadata *metadata) {
 	}
 	free(metadata->actions.items);
 	memset(metadata, 0, sizeof(*metadata));
+}
+
+void gut_darwin_free_ax_element_ref(gut_ax_element_ref *ref) {
+	if (ref == NULL) {
+		return;
+	}
+	free(ref->scope);
+	free(ref->path.items);
+	memset(ref, 0, sizeof(*ref));
+}
+
+void gut_darwin_free_ax_element_match(gut_ax_element_match *match) {
+	if (match == NULL) {
+		return;
+	}
+	gut_darwin_free_ax_element_ref(&match->ref);
+	gut_darwin_free_element_metadata(&match->metadata);
+	memset(match, 0, sizeof(*match));
+}
+
+void gut_darwin_free_ax_element_match_list(gut_ax_element_match_list *matches) {
+	if (matches == NULL) {
+		return;
+	}
+	for (int64_t index = 0; index < matches->length; index++) {
+		gut_darwin_free_ax_element_match(&matches->items[index]);
+	}
+	free(matches->items);
+	memset(matches, 0, sizeof(*matches));
 }
 
 }

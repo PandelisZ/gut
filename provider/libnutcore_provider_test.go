@@ -42,6 +42,14 @@ type fakeLibnutcoreClient struct {
 	elementActionAtPointErr      error
 	focusElementAtPointPosition  common.Point
 	focusElementAtPointErr       error
+	searchAXElementsQuery        common.AXElementSearchQuery
+	searchAXElementsMatches      []common.AXElementMatch
+	searchAXElementsErr          error
+	focusAXElementRef            common.AXElementRef
+	focusAXElementErr            error
+	performAXElementActionRef    common.AXElementRef
+	performAXElementAction       common.AXAction
+	performAXElementActionErr    error
 	keyTapKey                    string
 	keyTapModifiers              []string
 	keyTapErr                    error
@@ -139,6 +147,19 @@ func (f *fakeLibnutcoreClient) PerformElementActionAtPoint(position common.Point
 func (f *fakeLibnutcoreClient) FocusElementAtPoint(position common.Point) error {
 	f.focusElementAtPointPosition = position
 	return f.focusElementAtPointErr
+}
+func (f *fakeLibnutcoreClient) SearchAXElements(query common.AXElementSearchQuery) ([]common.AXElementMatch, error) {
+	f.searchAXElementsQuery = query
+	return append([]common.AXElementMatch(nil), f.searchAXElementsMatches...), f.searchAXElementsErr
+}
+func (f *fakeLibnutcoreClient) FocusAXElement(ref common.AXElementRef) error {
+	f.focusAXElementRef = ref
+	return f.focusAXElementErr
+}
+func (f *fakeLibnutcoreClient) PerformAXElementAction(ref common.AXElementRef, action common.AXAction) error {
+	f.performAXElementActionRef = ref
+	f.performAXElementAction = action
+	return f.performAXElementActionErr
 }
 func (f *fakeLibnutcoreClient) DragMouse(position common.Point, button common.MouseButton) error {
 	return nil
@@ -387,8 +408,37 @@ func TestAccessibilityProviderForwardsMetadataAndCapabilities(t *testing.T) {
 
 func TestAccessibilityProviderForwardsActions(t *testing.T) {
 	actionErr := errors.New("ax action failed")
+	searchQuery := common.AXElementSearchQuery{
+		Scope:               common.AXSearchScopeFrontmostApplication,
+		Role:                "AXButton",
+		Subrole:             "AXCloseButton",
+		TitleContains:       "Close",
+		ValueContains:       "",
+		DescriptionContains: "Dismiss dialog",
+		Action:              string(common.AXPress),
+		Enabled:             boolPtr(true),
+		Focused:             boolPtr(false),
+		Limit:               2,
+		MaxDepth:            4,
+	}
+	searchMatches := []common.AXElementMatch{{
+		Ref: common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, OwnerPID: 42, WindowHandle: 77, Path: []int{1, 3}},
+		Metadata: common.UIElementMetadata{
+			Role:       "AXButton",
+			Title:      "Close",
+			Enabled:    true,
+			Actions:    []string{string(common.AXPress)},
+			Frame:      common.Rect{X: 10, Y: 20, Width: 30, Height: 12},
+			FrameKnown: true,
+		},
+		Depth:            2,
+		ActionPoint:      common.Point{X: 25, Y: 26},
+		ActionPointKnown: true,
+	}}
+	matchRef := common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, OwnerPID: 42, WindowHandle: 77, Path: []int{1, 3}}
 	client := &fakeLibnutcoreClient{
-		raiseFocusedWindowErr: actionErr,
+		raiseFocusedWindowErr:   actionErr,
+		searchAXElementsMatches: searchMatches,
 	}
 	provider := NewLibnutcoreAccessibilityProvider(client)
 
@@ -425,6 +475,38 @@ func TestAccessibilityProviderForwardsActions(t *testing.T) {
 	if client.focusElementAtPointPosition != (common.Point{X: 12, Y: 34}) {
 		t.Fatalf("unexpected focus-element-at-point position: %#v", client.focusElementAtPointPosition)
 	}
+
+	client.focusElementAtPointErr = nil
+	matches, err := provider.SearchAXElements(context.Background(), searchQuery)
+	if err != nil {
+		t.Fatalf("unexpected search-ax-elements error: %v", err)
+	}
+	if !reflect.DeepEqual(client.searchAXElementsQuery, searchQuery) {
+		t.Fatalf("unexpected search-ax-elements query forwarding: %#v", client.searchAXElementsQuery)
+	}
+	if !reflect.DeepEqual(matches, searchMatches) {
+		t.Fatalf("unexpected search-ax-elements matches: %#v", matches)
+	}
+
+	client.focusAXElementErr = actionErr
+	if err := provider.FocusAXElement(context.Background(), matchRef); !errors.Is(err, actionErr) {
+		t.Fatalf("expected focus-ax-element error, got %v", err)
+	}
+	if !reflect.DeepEqual(client.focusAXElementRef, matchRef) {
+		t.Fatalf("unexpected focus-ax-element ref forwarding: %#v", client.focusAXElementRef)
+	}
+
+	client.focusAXElementErr = nil
+	client.performAXElementActionErr = actionErr
+	if err := provider.PerformAXElementAction(context.Background(), matchRef, common.AXPick); !errors.Is(err, actionErr) {
+		t.Fatalf("expected perform-ax-element-action error, got %v", err)
+	}
+	if !reflect.DeepEqual(client.performAXElementActionRef, matchRef) {
+		t.Fatalf("unexpected perform-ax-element-action ref forwarding: %#v", client.performAXElementActionRef)
+	}
+	if client.performAXElementAction != common.AXPick {
+		t.Fatalf("unexpected perform-ax-element-action forwarding: %q", client.performAXElementAction)
+	}
 }
 
 func TestAccessibilityProviderChecksContextBeforeWork(t *testing.T) {
@@ -457,6 +539,15 @@ func TestAccessibilityProviderChecksContextBeforeWork(t *testing.T) {
 	if err := provider.FocusElementAtPoint(ctx, shared.Point{X: 5, Y: 6}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context cancellation for focus-element-at-point, got %v", err)
 	}
+	if _, err := provider.SearchAXElements(ctx, common.AXElementSearchQuery{Scope: common.AXSearchScopeFocusedWindow, Limit: 1, MaxDepth: 0}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for search-ax-elements, got %v", err)
+	}
+	if err := provider.FocusAXElement(ctx, common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, Path: []int{0}}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for focus-ax-element, got %v", err)
+	}
+	if err := provider.PerformAXElementAction(ctx, common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, Path: []int{0}}, common.AXPick); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for perform-ax-element-action, got %v", err)
+	}
 	if client.elementAtPointPosition != (common.Point{}) {
 		t.Fatalf("expected canceled element-at-point lookup to avoid native calls, got %#v", client.elementAtPointPosition)
 	}
@@ -469,6 +560,121 @@ func TestAccessibilityProviderChecksContextBeforeWork(t *testing.T) {
 	if client.focusElementAtPointPosition != (common.Point{}) {
 		t.Fatalf("expected canceled focus-element-at-point to avoid native calls, got %#v", client.focusElementAtPointPosition)
 	}
+	if client.searchAXElementsQuery != (common.AXElementSearchQuery{}) {
+		t.Fatalf("expected canceled search-ax-elements to avoid native calls, got %#v", client.searchAXElementsQuery)
+	}
+	if client.focusAXElementRef.Scope != "" || client.focusAXElementRef.OwnerPID != 0 || client.focusAXElementRef.WindowHandle != 0 || client.focusAXElementRef.Path != nil {
+		t.Fatalf("expected canceled focus-ax-element to avoid native calls, got %#v", client.focusAXElementRef)
+	}
+	if client.performAXElementActionRef.Scope != "" || client.performAXElementActionRef.OwnerPID != 0 || client.performAXElementActionRef.WindowHandle != 0 || client.performAXElementActionRef.Path != nil || client.performAXElementAction != "" {
+		t.Fatalf("expected canceled perform-ax-element-action to avoid native calls, got ref=%#v action=%q", client.performAXElementActionRef, client.performAXElementAction)
+	}
+}
+
+func TestElementInspectionProviderBuildsTreeAndSupportsLookups(t *testing.T) {
+	client := &fakeLibnutcoreClient{
+		focusedWindow: common.FocusedWindowMetadata{
+			Handle:    77,
+			Title:     "Editor",
+			Role:      "AXWindow",
+			Subrole:   "AXStandardWindow",
+			Rect:      common.Rect{X: 10, Y: 20, Width: 300, Height: 200},
+			RectKnown: true,
+			Focused:   true,
+		},
+		searchAXElementsMatches: []common.AXElementMatch{
+			{
+				Ref: common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, WindowHandle: 77, Path: []int{0}},
+				Metadata: common.UIElementMetadata{
+					Role:       "AXGroup",
+					Title:      "Composer",
+					Enabled:    true,
+					Frame:      common.Rect{X: 20, Y: 40, Width: 260, Height: 140},
+					FrameKnown: true,
+				},
+			},
+			{
+				Ref: common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, WindowHandle: 77, Path: []int{0, 0}},
+				Metadata: common.UIElementMetadata{
+					Role:       "AXTextField",
+					Value:      "Draft message",
+					Enabled:    true,
+					Focused:    true,
+					Frame:      common.Rect{X: 40, Y: 60, Width: 200, Height: 30},
+					FrameKnown: true,
+				},
+			},
+			{
+				Ref: common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, WindowHandle: 77, Path: []int{0, 1}},
+				Metadata: common.UIElementMetadata{
+					Role:       "AXButton",
+					Title:      "Send",
+					Enabled:    true,
+					Frame:      common.Rect{X: 245, Y: 60, Width: 35, Height: 30},
+					FrameKnown: true,
+				},
+			},
+		},
+	}
+	provider := NewLibnutcoreElementInspectionProvider(client)
+
+	root, err := provider.GetElements(context.Background(), 77, 10)
+	if err != nil {
+		t.Fatalf("unexpected get elements error: %v", err)
+	}
+	if client.searchAXElementsQuery != (common.AXElementSearchQuery{Scope: common.AXSearchScopeFocusedWindow, Limit: 10, MaxDepth: 10}) {
+		t.Fatalf("unexpected search query forwarding: %#v", client.searchAXElementsQuery)
+	}
+	if root.Role == nil || *root.Role != "AXWindow" || len(root.Children) != 1 {
+		t.Fatalf("unexpected root element: %#v", root)
+	}
+	if root.Children[0].Title == nil || *root.Children[0].Title != "Composer" || len(root.Children[0].Children) != 2 {
+		t.Fatalf("unexpected reconstructed subtree: %#v", root.Children[0])
+	}
+	if root.Children[0].Children[1].Title == nil || *root.Children[0].Children[1].Title != "Send" {
+		t.Fatalf("unexpected button element: %#v", root.Children[0].Children[1])
+	}
+
+	button, err := provider.FindElement(context.Background(), 77, shared.WindowElementDescription{
+		Role:  "AXButton",
+		Title: boolMatcherPtr(shared.MatchString("Send")),
+	})
+	if err != nil {
+		t.Fatalf("unexpected find element error: %v", err)
+	}
+	if button.Title == nil || *button.Title != "Send" {
+		t.Fatalf("unexpected found element: %#v", button)
+	}
+
+	elements, err := provider.FindElements(context.Background(), 77, shared.WindowElementDescription{Role: "AXButton"})
+	if err != nil {
+		t.Fatalf("unexpected find elements error: %v", err)
+	}
+	if len(elements) != 1 || elements[0].Title == nil || *elements[0].Title != "Send" {
+		t.Fatalf("unexpected found elements: %#v", elements)
+	}
+}
+
+func TestElementInspectionProviderChecksContextBeforeWork(t *testing.T) {
+	client := &fakeLibnutcoreClient{}
+	provider := NewLibnutcoreElementInspectionProvider(client)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := provider.GetElements(ctx, 77, 10); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for get elements, got %v", err)
+	}
+	if _, err := provider.FindElements(ctx, 77, shared.WindowElementDescription{Role: "AXButton"}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation for find elements, got %v", err)
+	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
+}
+
+func boolMatcherPtr(value shared.StringMatcher) *shared.StringMatcher {
+	return &value
 }
 
 func TestKeyToLibnutTokenUsesMainCCTokens(t *testing.T) {
@@ -1189,6 +1395,9 @@ func TestRegisterLibnutcoreProvidersSmoke(t *testing.T) {
 	accessibility, err := registry.Accessibility()
 	if err != nil {
 		t.Fatalf("unexpected accessibility lookup error: %v", err)
+	}
+	if _, err := registry.ElementInspection(); err != nil {
+		t.Fatalf("unexpected element inspection lookup error: %v", err)
 	}
 
 	if err := keyboard.Click(context.Background(), shared.KeyA); err == nil {

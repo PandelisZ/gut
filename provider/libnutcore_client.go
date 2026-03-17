@@ -18,6 +18,9 @@ type libnutcoreClient interface {
 	PerformFocusedElementAction(action common.AXAction) error
 	PerformElementActionAtPoint(position common.Point, action common.AXAction) error
 	FocusElementAtPoint(position common.Point) error
+	SearchAXElements(query common.AXElementSearchQuery) ([]common.AXElementMatch, error)
+	FocusAXElement(ref common.AXElementRef) error
+	PerformAXElementAction(ref common.AXElementRef, action common.AXAction) error
 	MoveMouse(position common.Point) error
 	GetMousePosition() (common.Point, error)
 	MouseClick(button common.MouseButton, double bool) error

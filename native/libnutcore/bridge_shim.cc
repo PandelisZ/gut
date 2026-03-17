@@ -95,6 +95,35 @@ int gut_focus_element_at_point(int64_t x, int64_t y) {
 #endif
 }
 
+int gut_search_ax_elements(const gut_ax_element_search_query *query, gut_ax_element_match_list *matches) {
+#if defined(IS_MACOSX)
+	return gut_darwin_search_ax_elements(query, matches);
+#else
+	(void)query;
+	(void)matches;
+	return gut_status_unsupported;
+#endif
+}
+
+int gut_focus_ax_element(const gut_ax_element_ref *ref) {
+#if defined(IS_MACOSX)
+	return gut_darwin_focus_ax_element(ref);
+#else
+	(void)ref;
+	return gut_status_unsupported;
+#endif
+}
+
+int gut_perform_ax_element_action(const gut_ax_element_ref *ref, const char *action_token) {
+#if defined(IS_MACOSX)
+	return gut_darwin_perform_ax_element_action(ref, action_token);
+#else
+	(void)ref;
+	(void)action_token;
+	return gut_status_unsupported;
+#endif
+}
+
 int gut_drag_mouse(int64_t x, int64_t y, const char *button_token) {
 	int permission_status = gut_require_accessibility_permission();
 	if (permission_status != gut_status_ok) {
@@ -465,6 +494,30 @@ void gut_free_element_metadata(gut_element_metadata *metadata) {
 	gut_darwin_free_element_metadata(metadata);
 #else
 	(void)metadata;
+#endif
+}
+
+void gut_free_ax_element_ref(gut_ax_element_ref *ref) {
+#if defined(IS_MACOSX)
+	gut_darwin_free_ax_element_ref(ref);
+#else
+	(void)ref;
+#endif
+}
+
+void gut_free_ax_element_match(gut_ax_element_match *match) {
+#if defined(IS_MACOSX)
+	gut_darwin_free_ax_element_match(match);
+#else
+	(void)match;
+#endif
+}
+
+void gut_free_ax_element_match_list(gut_ax_element_match_list *matches) {
+#if defined(IS_MACOSX)
+	gut_darwin_free_ax_element_match_list(matches);
+#else
+	(void)matches;
 #endif
 }
 

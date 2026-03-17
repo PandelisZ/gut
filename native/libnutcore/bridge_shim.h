@@ -74,6 +74,45 @@ typedef struct gut_element_metadata {
 	gut_string_list actions;
 } gut_element_metadata;
 
+typedef struct gut_int64_list {
+	int64_t *items;
+	int64_t length;
+} gut_int64_list;
+
+typedef struct gut_ax_element_search_query {
+	char *scope;
+	char *role;
+	char *subrole;
+	char *title_contains;
+	char *value_contains;
+	char *description_contains;
+	char *action;
+	int enabled_state;
+	int focused_state;
+	int64_t limit;
+	int64_t max_depth;
+} gut_ax_element_search_query;
+
+typedef struct gut_ax_element_ref {
+	char *scope;
+	int64_t owner_pid;
+	int64_t window_handle;
+	gut_int64_list path;
+} gut_ax_element_ref;
+
+typedef struct gut_ax_element_match {
+	gut_ax_element_ref ref;
+	gut_element_metadata metadata;
+	int64_t depth;
+	gut_point action_point;
+	int has_action_point;
+} gut_ax_element_match;
+
+typedef struct gut_ax_element_match_list {
+	gut_ax_element_match *items;
+	int64_t length;
+} gut_ax_element_match_list;
+
 typedef struct gut_window_list {
 	int64_t *handles;
 	int64_t length;
@@ -87,6 +126,9 @@ int gut_perform_focused_element_action(const char *action_token);
 int gut_get_element_metadata_at_point(int64_t x, int64_t y, gut_element_metadata *metadata);
 int gut_perform_element_action_at_point(int64_t x, int64_t y, const char *action_token);
 int gut_focus_element_at_point(int64_t x, int64_t y);
+int gut_search_ax_elements(const gut_ax_element_search_query *query, gut_ax_element_match_list *matches);
+int gut_focus_ax_element(const gut_ax_element_ref *ref);
+int gut_perform_ax_element_action(const gut_ax_element_ref *ref, const char *action_token);
 int gut_drag_mouse(int64_t x, int64_t y, const char *button_token);
 int gut_move_mouse(int64_t x, int64_t y);
 int gut_get_mouse_pos(gut_point *point);
@@ -121,6 +163,9 @@ void gut_free_bitmap(gut_bitmap *bitmap);
 void gut_free_window_list(gut_window_list *windows);
 void gut_free_window_metadata(gut_window_metadata *metadata);
 void gut_free_element_metadata(gut_element_metadata *metadata);
+void gut_free_ax_element_ref(gut_ax_element_ref *ref);
+void gut_free_ax_element_match(gut_ax_element_match *match);
+void gut_free_ax_element_match_list(gut_ax_element_match_list *matches);
 
 #ifdef __cplusplus
 }

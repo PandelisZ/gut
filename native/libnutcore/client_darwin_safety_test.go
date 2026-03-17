@@ -66,6 +66,9 @@ func TestDarwinAccessibilityCapabilitiesReflectPermissionState(t *testing.T) {
 		common.CapabilityAXFocusedElementAction,
 		common.CapabilityAXElementActionAtPoint,
 		common.CapabilityAXElementFocusAtPoint,
+		common.CapabilityAXElementSearch,
+		common.CapabilityAXElementFocusMatch,
+		common.CapabilityAXElementActionMatch,
 	} {
 		if status := capabilities.Status(capability); status.Availability != expected {
 			t.Fatalf("expected %s to be %s, got %s (%s)", capability, expected, status.Availability, status.Reason)
@@ -139,6 +142,15 @@ func TestDarwinAccessibilityPermissionBlockedOperationsAreDeterministic(t *testi
 	}
 	if err := client.FocusElementAtPoint(common.Point{X: 0, Y: 0}); !errors.Is(err, common.ErrPermissionDenied) {
 		t.Fatalf("expected focusElementAtPoint to return ErrPermissionDenied, got %v", err)
+	}
+	if _, err := client.SearchAXElements(common.AXElementSearchQuery{Scope: common.AXSearchScopeFocusedWindow, Limit: 1, MaxDepth: 0}); !errors.Is(err, common.ErrPermissionDenied) {
+		t.Fatalf("expected searchAXElements to return ErrPermissionDenied, got %v", err)
+	}
+	if err := client.FocusAXElement(common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow}); !errors.Is(err, common.ErrPermissionDenied) {
+		t.Fatalf("expected focusAXElement to return ErrPermissionDenied, got %v", err)
+	}
+	if err := client.PerformAXElementAction(common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow}, common.AXPress); !errors.Is(err, common.ErrPermissionDenied) {
+		t.Fatalf("expected performAXElementAction to return ErrPermissionDenied, got %v", err)
 	}
 	if err := client.MoveMouse(common.Point{X: 1, Y: 1}); !errors.Is(err, common.ErrPermissionDenied) {
 		t.Fatalf("expected moveMouse to return ErrPermissionDenied, got %v", err)
@@ -262,6 +274,105 @@ func TestDarwinOffScreenPointOperationsReturnCapabilityUnavailable(t *testing.T)
 	}
 	if err := client.FocusElementAtPoint(position); !errors.Is(err, common.ErrCapabilityUnavailable) {
 		t.Fatalf("expected off-screen focusElementAtPoint to return ErrCapabilityUnavailable, got %v", err)
+	}
+}
+
+func TestDarwinSearchAXElementsReturnsStructuredMatchesOrEmpty(t *testing.T) {
+	client := New(Options{})
+	snapshot := getPermissionSnapshotOrSkip(t, client)
+	if !snapshot.Accessibility.Granted {
+		t.Skip("Accessibility permission is not granted")
+	}
+
+	matches, err := client.SearchAXElements(common.AXElementSearchQuery{
+		Scope:    common.AXSearchScopeFocusedWindow,
+		Limit:    5,
+		MaxDepth: 2,
+	})
+	if err != nil {
+		t.Fatalf("unexpected searchAXElements error: %v", err)
+	}
+	for _, match := range matches {
+		if match.Ref.Scope != common.AXSearchScopeFocusedWindow {
+			t.Fatalf("unexpected match scope: %s", match.Ref.Scope)
+		}
+		if match.Depth < 0 {
+			t.Fatalf("unexpected negative match depth: %d", match.Depth)
+		}
+		if match.ActionPointKnown && (match.ActionPoint.X == 0 && match.ActionPoint.Y == 0) && match.Metadata.FrameKnown && (match.Metadata.Frame.Width > 0 || match.Metadata.Frame.Height > 0) {
+			t.Fatalf("expected structured action point when known, got %+v", match)
+		}
+		for _, index := range match.Ref.Path {
+			if index < 0 {
+				t.Fatalf("unexpected negative path index: %+v", match.Ref)
+			}
+		}
+	}
+}
+
+func TestDarwinSearchAXElementsImpossibleRoleReturnsEmpty(t *testing.T) {
+	client := New(Options{})
+	snapshot := getPermissionSnapshotOrSkip(t, client)
+	if !snapshot.Accessibility.Granted {
+		t.Skip("Accessibility permission is not granted")
+	}
+
+	matches, err := client.SearchAXElements(common.AXElementSearchQuery{
+		Scope:    common.AXSearchScopeFrontmostApplication,
+		Role:     "AXDefinitelyImpossibleSyntheticRole",
+		Limit:    5,
+		MaxDepth: 3,
+	})
+	if err != nil {
+		t.Fatalf("unexpected searchAXElements error: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected impossible role search to return an empty result slice, got %d matches", len(matches))
+	}
+}
+
+func TestDarwinRefBasedFollowUpOperationsReturnCapabilityUnavailableWhenUnresolved(t *testing.T) {
+	client := New(Options{})
+	snapshot := getPermissionSnapshotOrSkip(t, client)
+	if !snapshot.Accessibility.Granted {
+		t.Skip("Accessibility permission is not granted")
+	}
+
+	ref := common.AXElementRef{
+		Scope:        common.AXSearchScopeFocusedWindow,
+		OwnerPID:     1,
+		WindowHandle: 1,
+		Path:         []int{999999},
+	}
+
+	if err := client.FocusAXElement(ref); !errors.Is(err, common.ErrCapabilityUnavailable) {
+		t.Fatalf("expected unresolved focusAXElement to return ErrCapabilityUnavailable, got %v", err)
+	}
+	if err := client.PerformAXElementAction(ref, common.AXPress); !errors.Is(err, common.ErrCapabilityUnavailable) {
+		t.Fatalf("expected unresolved performAXElementAction to return ErrCapabilityUnavailable, got %v", err)
+	}
+}
+
+func TestDarwinSearchValidationRejectsInvalidQuery(t *testing.T) {
+	client := New(Options{})
+	if _, err := client.SearchAXElements(common.AXElementSearchQuery{Scope: common.AXSearchScope("bad"), Limit: 1, MaxDepth: 0}); !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected invalid scope to return ErrInvalidToken, got %v", err)
+	}
+	if _, err := client.SearchAXElements(common.AXElementSearchQuery{Scope: common.AXSearchScopeFocusedWindow, Limit: 0, MaxDepth: 0}); !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected zero limit to return ErrInvalidToken, got %v", err)
+	}
+	if _, err := client.SearchAXElements(common.AXElementSearchQuery{Scope: common.AXSearchScopeFocusedWindow, Limit: 1, MaxDepth: -1}); !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected negative max depth to return ErrInvalidToken, got %v", err)
+	}
+}
+
+func TestDarwinRefValidationRejectsInvalidScope(t *testing.T) {
+	client := New(Options{})
+	if err := client.FocusAXElement(common.AXElementRef{Scope: common.AXSearchScope("bad")}); !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected invalid ref scope to return ErrInvalidToken, got %v", err)
+	}
+	if err := client.PerformAXElementAction(common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, Path: []int{-1}}, common.AXPress); !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected invalid ref path to return ErrInvalidToken, got %v", err)
 	}
 }
 

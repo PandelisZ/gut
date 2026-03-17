@@ -10,6 +10,42 @@ const (
 	AXPick     AXAction = "AXPick"
 )
 
+type AXSearchScope string
+
+const (
+	AXSearchScopeFocusedWindow       AXSearchScope = "focused_window"
+	AXSearchScopeFrontmostApplication AXSearchScope = "frontmost_application"
+)
+
+type AXElementSearchQuery struct {
+	Scope               AXSearchScope
+	Role                string
+	Subrole             string
+	TitleContains       string
+	ValueContains       string
+	DescriptionContains string
+	Action              string
+	Enabled             *bool
+	Focused             *bool
+	Limit               int
+	MaxDepth            int
+}
+
+type AXElementRef struct {
+	Scope        AXSearchScope
+	OwnerPID     int
+	WindowHandle WindowHandle
+	Path         []int
+}
+
+type AXElementMatch struct {
+	Ref              AXElementRef
+	Metadata         UIElementMetadata
+	Depth            int
+	ActionPoint      Point
+	ActionPointKnown bool
+}
+
 type PermissionStatus struct {
 	Granted   bool
 	Supported bool

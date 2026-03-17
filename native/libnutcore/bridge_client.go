@@ -79,6 +79,18 @@ func (c *bridgeClient) FocusElementAtPoint(position common.Point) error {
 	return bridgeFocusElementAtPoint(position)
 }
 
+func (c *bridgeClient) SearchAXElements(query common.AXElementSearchQuery) ([]common.AXElementMatch, error) {
+	return bridgeSearchAXElements(query)
+}
+
+func (c *bridgeClient) FocusAXElement(ref common.AXElementRef) error {
+	return bridgeFocusAXElement(ref)
+}
+
+func (c *bridgeClient) PerformAXElementAction(ref common.AXElementRef, action common.AXAction) error {
+	return bridgePerformAXElementAction(ref, action)
+}
+
 func (c *bridgeClient) DragMouse(position common.Point, button common.MouseButton) error {
 	return bridgeDragMouse(position, button)
 }

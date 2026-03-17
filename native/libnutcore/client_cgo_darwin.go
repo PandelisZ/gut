@@ -116,6 +116,21 @@ func newClient(options Options) Client {
 			Availability: common.AvailabilityAvailable,
 			Reason:       "AX focus at screen points is available because Accessibility permission is granted",
 		}
+		capabilities[common.CapabilityAXElementSearch] = common.CapabilityStatus{
+			Capability:   common.CapabilityAXElementSearch,
+			Availability: common.AvailabilityAvailable,
+			Reason:       "bounded AX subtree search is available because Accessibility permission is granted",
+		}
+		capabilities[common.CapabilityAXElementFocusMatch] = common.CapabilityStatus{
+			Capability:   common.CapabilityAXElementFocusMatch,
+			Availability: common.AvailabilityAvailable,
+			Reason:       "AX focus by structured match reference is available because Accessibility permission is granted",
+		}
+		capabilities[common.CapabilityAXElementActionMatch] = common.CapabilityStatus{
+			Capability:   common.CapabilityAXElementActionMatch,
+			Availability: common.AvailabilityAvailable,
+			Reason:       "AX action by structured match reference is available because Accessibility permission is granted",
+		}
 	} else {
 		reason := permissions.Accessibility.Reason
 		if reason == "" {
@@ -139,6 +154,9 @@ func newClient(options Options) Client {
 		capabilities[common.CapabilityAXFocusedElementAction] = common.CapabilityStatus{Capability: common.CapabilityAXFocusedElementAction, Availability: common.AvailabilityPermissionBlocked, Reason: reason}
 		capabilities[common.CapabilityAXElementActionAtPoint] = common.CapabilityStatus{Capability: common.CapabilityAXElementActionAtPoint, Availability: common.AvailabilityPermissionBlocked, Reason: reason}
 		capabilities[common.CapabilityAXElementFocusAtPoint] = common.CapabilityStatus{Capability: common.CapabilityAXElementFocusAtPoint, Availability: common.AvailabilityPermissionBlocked, Reason: reason}
+		capabilities[common.CapabilityAXElementSearch] = common.CapabilityStatus{Capability: common.CapabilityAXElementSearch, Availability: common.AvailabilityPermissionBlocked, Reason: reason}
+		capabilities[common.CapabilityAXElementFocusMatch] = common.CapabilityStatus{Capability: common.CapabilityAXElementFocusMatch, Availability: common.AvailabilityPermissionBlocked, Reason: reason}
+		capabilities[common.CapabilityAXElementActionMatch] = common.CapabilityStatus{Capability: common.CapabilityAXElementActionMatch, Availability: common.AvailabilityPermissionBlocked, Reason: reason}
 	}
 
 	capabilities[common.CapabilityScreenHighlight] = common.CapabilityStatus{
@@ -167,6 +185,7 @@ func newClient(options Options) Client {
 		"Quartz/CoreGraphics input primitives remain available, while AppKit overlay UI is dispatched onto the main thread inside libnutcore.",
 		"macOS permission readiness is exposed without prompting so callers can distinguish unavailable capabilities from privacy-blocked ones.",
 		"AX metadata and interaction primitives expose focused-window raise plus focused and point-targeted element actions without persistent AX handles.",
+		"AX search and ref-based follow-up primitives use bounded subtree walks and serializable path-from-root element references.",
 		"Screen capture is intentionally unavailable in the current macOS safety model and returns deterministic capability errors.",
 	}, capabilities, options)
 }

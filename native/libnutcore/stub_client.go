@@ -75,6 +75,18 @@ func (c *unavailableClient) FocusElementAtPoint(position common.Point) error {
 	return c.capabilityError("focusElementAtPoint", common.CapabilityAXElementFocusAtPoint)
 }
 
+func (c *unavailableClient) SearchAXElements(query common.AXElementSearchQuery) ([]common.AXElementMatch, error) {
+	return nil, c.unavailable("searchAXElements", common.CapabilityAXElementSearch)
+}
+
+func (c *unavailableClient) FocusAXElement(ref common.AXElementRef) error {
+	return c.capabilityError("focusAXElement", common.CapabilityAXElementFocusMatch)
+}
+
+func (c *unavailableClient) PerformAXElementAction(ref common.AXElementRef, action common.AXAction) error {
+	return c.capabilityError("performAXElementAction", common.CapabilityAXElementActionMatch)
+}
+
 func (c *unavailableClient) DragMouse(position common.Point, button common.MouseButton) error {
 	return c.unavailable("dragMouse", common.CapabilityMouseDrag)
 }

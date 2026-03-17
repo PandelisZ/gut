@@ -53,6 +53,55 @@ func TestValidateAXActionRejectsEmpty(t *testing.T) {
 	}
 }
 
+func TestValidateAXElementSearchQueryRejectsInvalidScope(t *testing.T) {
+	err := validateAXElementSearchQuery(common.AXElementSearchQuery{Scope: common.AXSearchScope("nope"), Limit: 1, MaxDepth: 0})
+	if !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken, got %v", err)
+	}
+}
+
+func TestValidateAXElementSearchQueryRejectsNonPositiveLimit(t *testing.T) {
+	err := validateAXElementSearchQuery(common.AXElementSearchQuery{Scope: common.AXSearchScopeFocusedWindow, Limit: 0, MaxDepth: 0})
+	if !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken, got %v", err)
+	}
+}
+
+func TestValidateAXElementSearchQueryRejectsNegativeMaxDepth(t *testing.T) {
+	err := validateAXElementSearchQuery(common.AXElementSearchQuery{Scope: common.AXSearchScopeFocusedWindow, Limit: 1, MaxDepth: -1})
+	if !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken, got %v", err)
+	}
+}
+
+func TestValidateAXElementRefRejectsInvalidScope(t *testing.T) {
+	err := validateAXElementRef(common.AXElementRef{Scope: common.AXSearchScope("nope")}, "focusAXElement", common.CapabilityAXElementFocusMatch)
+	if !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken, got %v", err)
+	}
+}
+
+func TestValidateAXElementRefRejectsNegativePathIndex(t *testing.T) {
+	err := validateAXElementRef(common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, Path: []int{-1}}, "focusAXElement", common.CapabilityAXElementFocusMatch)
+	if !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken, got %v", err)
+	}
+}
+
+func TestBoolPointerToTristate(t *testing.T) {
+	if got := boolPointerToTristate(nil); got != -1 {
+		t.Fatalf("expected nil bool to map to -1, got %d", got)
+	}
+	value := false
+	if got := boolPointerToTristate(&value); got != 0 {
+		t.Fatalf("expected false bool to map to 0, got %d", got)
+	}
+	value = true
+	if got := boolPointerToTristate(&value); got != 1 {
+		t.Fatalf("expected true bool to map to 1, got %d", got)
+	}
+}
+
 func TestBridgeAXInteractionErrorCapabilityUnavailable(t *testing.T) {
 	err := bridgeAXInteractionError("focusElementAtPoint", common.CapabilityAXElementFocusAtPoint, 4, "no AX element is available at the requested point or it does not expose a settable AXFocused attribute")
 	if !errors.Is(err, common.ErrCapabilityUnavailable) {
