@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"gut/native/common"
+	"github.com/PandelisZ/gut/native/common"
 )
 
 func TestParseCapabilityListSortsAndDeduplicates(t *testing.T) {

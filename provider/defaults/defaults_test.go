@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gut/imageproc"
-	"gut/provider"
-	"gut/shared"
+	"github.com/PandelisZ/gut/imageproc"
+	"github.com/PandelisZ/gut/provider"
+	"github.com/PandelisZ/gut/shared"
 )
 
 var defaultsTestBinarySalt = "gut-defaults-test-salt-1"

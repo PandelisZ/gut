@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 
-	"gut/shared"
+	"github.com/PandelisZ/gut/shared"
 )
 
 type libnutcoreWindowProvider struct {

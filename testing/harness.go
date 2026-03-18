@@ -8,8 +8,8 @@ import (
 	"strings"
 	stdtesting "testing"
 
-	"gut/native/common"
-	"gut/native/libnutcore"
+	"github.com/PandelisZ/gut/native/common"
+	"github.com/PandelisZ/gut/native/libnutcore"
 )
 
 const (

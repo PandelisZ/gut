@@ -95,7 +95,7 @@ goto passthrough
 :run_all_with_stable_testing
 set "PACKAGE_ARGS="
 for /f "delims=" %%A in ('""%GOEXE%" list ./..."') do (
- if /I not "%%A"=="gut/testing" set "PACKAGE_ARGS=!PACKAGE_ARGS! %%A"
+ if /I not "%%A"=="github.com/PandelisZ/gut/testing" set "PACKAGE_ARGS=!PACKAGE_ARGS! %%A"
 )
 if defined PACKAGE_ARGS (
  "%GOEXE%" test!TEST_FLAGS! !PACKAGE_ARGS!

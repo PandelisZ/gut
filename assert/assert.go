@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"gut/screen"
-	"gut/shared"
+	"github.com/PandelisZ/gut/screen"
+	"github.com/PandelisZ/gut/shared"
 )
 
 type Assert struct {

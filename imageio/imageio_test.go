@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gut/provider"
-	"gut/shared"
+	"github.com/PandelisZ/gut/provider"
+	"github.com/PandelisZ/gut/shared"
 )
 
 func TestReaderLoadsPNGAsFourChannelBGRImage(t *testing.T) {

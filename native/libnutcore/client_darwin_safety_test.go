@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"gut/native/common"
+	"github.com/PandelisZ/gut/native/common"
 )
 
 func TestDarwinPermissionSnapshotIncludesExpectedEntries(t *testing.T) {

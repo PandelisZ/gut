@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sort"
 
-	"gut/native/common"
-	"gut/shared"
+	"github.com/PandelisZ/gut/native/common"
+	"github.com/PandelisZ/gut/shared"
 )
 
 const libnutcoreDefaultElementInspectionLimit = 400

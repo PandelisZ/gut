@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	gutlog "gut/log"
-	"gut/provider"
-	"gut/shared"
-	"gut/util"
+	gutlog "github.com/PandelisZ/gut/log"
+	"github.com/PandelisZ/gut/provider"
+	"github.com/PandelisZ/gut/shared"
+	"github.com/PandelisZ/gut/util"
 )
 
 const (

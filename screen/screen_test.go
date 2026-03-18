@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"gut/provider"
-	"gut/shared"
-	"gut/window"
+	"github.com/PandelisZ/gut/provider"
+	"github.com/PandelisZ/gut/shared"
+	"github.com/PandelisZ/gut/window"
 )
 
 type fakeScreenProvider struct {

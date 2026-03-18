@@ -1,6 +1,6 @@
 package libnutcore
 
-import "gut/native/common"
+import "github.com/PandelisZ/gut/native/common"
 
 func linkedCapabilities() common.CapabilitySet {
 	return common.NewCapabilitySet(

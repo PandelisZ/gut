@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"math"
 
-	"gut/provider"
-	"gut/shared"
+	"github.com/PandelisZ/gut/provider"
+	"github.com/PandelisZ/gut/shared"
 )
 
 var ErrPointOutOfBounds = errors.New("image point out of bounds")

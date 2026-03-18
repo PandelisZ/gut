@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"gut/native/common"
+	"github.com/PandelisZ/gut/native/common"
 )
 
 func TestBridgeStatusErrorCapabilityUnavailable(t *testing.T) {

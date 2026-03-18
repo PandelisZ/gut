@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"gut/native/common"
-	"gut/native/libnutcore"
-	"gut/shared"
+	"github.com/PandelisZ/gut/native/common"
+	"github.com/PandelisZ/gut/native/libnutcore"
+	"github.com/PandelisZ/gut/shared"
 )
 
 type recordedToggle struct {

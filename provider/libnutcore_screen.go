@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"gut/native/common"
-	"gut/shared"
+	"github.com/PandelisZ/gut/native/common"
+	"github.com/PandelisZ/gut/shared"
 )
 
 type libnutcoreScreenProvider struct {

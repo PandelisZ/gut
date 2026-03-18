@@ -2,7 +2,7 @@
 
 package libnutcore
 
-import "gut/native/common"
+import "github.com/PandelisZ/gut/native/common"
 
 func newClient(options Options) Client {
 	capabilities := linkedCapabilities()

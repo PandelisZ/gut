@@ -3,7 +3,7 @@ package provider
 import (
 	"fmt"
 
-	gutlog "gut/log"
+	gutlog "github.com/PandelisZ/gut/log"
 )
 
 type MissingProviderError struct {

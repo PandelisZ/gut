@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	"gut/util"
+	"github.com/PandelisZ/gut/util"
 )
 
 func Sleep(ctx context.Context, duration time.Duration) error {

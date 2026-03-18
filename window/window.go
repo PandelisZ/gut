@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"gut/provider"
-	"gut/shared"
-	"gut/util"
+	"github.com/PandelisZ/gut/provider"
+	"github.com/PandelisZ/gut/shared"
+	"github.com/PandelisZ/gut/util"
 )
 
 type Window struct {

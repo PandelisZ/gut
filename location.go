@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"gut/shared"
+	"github.com/PandelisZ/gut/shared"
 )
 
 func CenterOf(region shared.Region) (shared.Point, error) {

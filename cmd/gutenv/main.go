@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"gut/native/common"
-	guttesting "gut/testing"
+	"github.com/PandelisZ/gut/native/common"
+	guttesting "github.com/PandelisZ/gut/testing"
 )
 
 type config struct {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"gut/shared"
+	"github.com/PandelisZ/gut/shared"
 )
 
 type stubWindowProvider struct {

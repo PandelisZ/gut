@@ -1,10 +1,10 @@
 package defaults
 
 import (
-	"gut/clipboard"
-	"gut/imageio"
-	"gut/imageproc"
-	"gut/provider"
+	"github.com/PandelisZ/gut/clipboard"
+	"github.com/PandelisZ/gut/imageio"
+	"github.com/PandelisZ/gut/imageproc"
+	"github.com/PandelisZ/gut/provider"
 )
 
 func RegisterAuxiliary(registry *provider.Registry) {

@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"gut"
-	"gut/native/common"
-	guttesting "gut/testing"
+	"github.com/PandelisZ/gut"
+	"github.com/PandelisZ/gut/native/common"
+	guttesting "github.com/PandelisZ/gut/testing"
 )
 
 func TestLiveReadOnlyScreenSizeViaDefaultRegistry(t *testing.T) {

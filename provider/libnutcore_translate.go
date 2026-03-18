@@ -3,8 +3,8 @@ package provider
 import (
 	"fmt"
 
-	"gut/native/common"
-	"gut/shared"
+	"github.com/PandelisZ/gut/native/common"
+	"github.com/PandelisZ/gut/shared"
 )
 
 func keyToLibnutToken(key shared.Key) (string, error) {

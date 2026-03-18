@@ -7,10 +7,10 @@ import (
 	"math"
 	"time"
 
-	"gut/provider"
-	"gut/shared"
-	"gut/util"
-	"gut/window"
+	"github.com/PandelisZ/gut/provider"
+	"github.com/PandelisZ/gut/shared"
+	"github.com/PandelisZ/gut/util"
+	"github.com/PandelisZ/gut/window"
 )
 
 var errMatchNotFound = errors.New("screen search match not found")

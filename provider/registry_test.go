@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	gutlog "gut/log"
-	"gut/native/common"
-	"gut/shared"
+	gutlog "github.com/PandelisZ/gut/log"
+	"github.com/PandelisZ/gut/native/common"
+	"github.com/PandelisZ/gut/shared"
 )
 
 type stubAccessibilityProvider struct{}

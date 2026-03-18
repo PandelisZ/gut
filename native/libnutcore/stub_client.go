@@ -3,7 +3,7 @@ package libnutcore
 import (
 	"time"
 
-	"gut/native/common"
+	"github.com/PandelisZ/gut/native/common"
 )
 
 var _ Client = (*unavailableClient)(nil)

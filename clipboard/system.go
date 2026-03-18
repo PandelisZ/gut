@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	"gut/provider"
+	"github.com/PandelisZ/gut/provider"
 )
 
 var ErrBackendUnavailable = errors.New("clipboard backend unavailable")

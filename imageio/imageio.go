@@ -14,8 +14,8 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 
-	"gut/provider"
-	"gut/shared"
+	"github.com/PandelisZ/gut/provider"
+	"github.com/PandelisZ/gut/shared"
 )
 
 var ErrUnsupportedFormat = errors.New("image format unsupported")

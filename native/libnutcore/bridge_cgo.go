@@ -23,7 +23,7 @@ import (
 	"time"
 	"unsafe"
 
-	"gut/native/common"
+	"github.com/PandelisZ/gut/native/common"
 )
 
 func bridgeDragMouse(position common.Point, button common.MouseButton) error {

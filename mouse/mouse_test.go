@@ -6,23 +6,23 @@ import (
 	"testing"
 	"time"
 
-	"gut/provider"
-	"gut/shared"
+	"github.com/PandelisZ/gut/provider"
+	"github.com/PandelisZ/gut/shared"
 )
 
 type fakeMouseProvider struct {
-	delay         time.Duration
-	position      shared.Point
-	positions     []shared.Point
-	clicks        []shared.Button
-	doubleClicks  []shared.Button
-	presses       []shared.Button
-	releases      []shared.Button
-	scrollUp      []int
-	scrollDown    []int
-	scrollLeft    []int
-	scrollRight   []int
-	events        []string
+	delay        time.Duration
+	position     shared.Point
+	positions    []shared.Point
+	clicks       []shared.Button
+	doubleClicks []shared.Button
+	presses      []shared.Button
+	releases     []shared.Button
+	scrollUp     []int
+	scrollDown   []int
+	scrollLeft   []int
+	scrollRight  []int
+	events       []string
 }
 
 func (f *fakeMouseProvider) SetMouseDelay(delay time.Duration) {

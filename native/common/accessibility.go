@@ -13,7 +13,7 @@ const (
 type AXSearchScope string
 
 const (
-	AXSearchScopeFocusedWindow       AXSearchScope = "focused_window"
+	AXSearchScopeFocusedWindow        AXSearchScope = "focused_window"
 	AXSearchScopeFrontmostApplication AXSearchScope = "frontmost_application"
 )
 

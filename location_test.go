@@ -3,7 +3,7 @@ package gut
 import (
 	"testing"
 
-	"gut/shared"
+	"github.com/PandelisZ/gut/shared"
 )
 
 func TestCenterOf(t *testing.T) {

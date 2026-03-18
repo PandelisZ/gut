@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"gut/provider"
-	"gut/screen"
-	"gut/shared"
+	"github.com/PandelisZ/gut/provider"
+	"github.com/PandelisZ/gut/screen"
+	"github.com/PandelisZ/gut/shared"
 )
 
 var assertTestBinarySalt = "gut-assert-test-salt-1"

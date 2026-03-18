@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	"gut/native/common"
-	"gut/native/libnutcore"
-	guttesting "gut/testing"
+	"github.com/PandelisZ/gut/native/common"
+	"github.com/PandelisZ/gut/native/libnutcore"
+	guttesting "github.com/PandelisZ/gut/testing"
 )
 
 func TestCapabilityReportSortsCapabilitiesAndGates(t *testing.T) {

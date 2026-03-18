@@ -3,15 +3,15 @@ package gut
 import (
 	"context"
 
-	"gut/assert"
-	"gut/keyboard"
-	"gut/mouse"
-	"gut/native/libnutcore"
-	"gut/provider"
-	"gut/provider/defaults"
-	"gut/screen"
-	"gut/shared"
-	"gut/window"
+	"github.com/PandelisZ/gut/assert"
+	"github.com/PandelisZ/gut/keyboard"
+	"github.com/PandelisZ/gut/mouse"
+	"github.com/PandelisZ/gut/native/libnutcore"
+	"github.com/PandelisZ/gut/provider"
+	"github.com/PandelisZ/gut/provider/defaults"
+	"github.com/PandelisZ/gut/screen"
+	"github.com/PandelisZ/gut/shared"
+	"github.com/PandelisZ/gut/window"
 )
 
 type Keyboard = keyboard.Keyboard
