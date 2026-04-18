@@ -32,21 +32,21 @@ func (p *libnutcoreElementInspectionProvider) GetElements(ctx context.Context, w
 		return shared.WindowElement{}, fmt.Errorf("%w: getElements [%s]", common.ErrInvalidToken, common.CapabilityAXElementSearch)
 	}
 
-	focusedWindow, err := p.focusedWindow(ctx, windowHandle)
-	if err != nil {
-		return shared.WindowElement{}, err
-	}
-
 	matches, err := p.client.SearchAXElements(common.AXElementSearchQuery{
-		Scope:    common.AXSearchScopeFocusedWindow,
-		Limit:    maxElements,
-		MaxDepth: maxElements,
+		Scope:        common.AXSearchScopeWindowHandle,
+		WindowHandle: windowHandleToNative(windowHandle),
+		Limit:        maxElements,
+		MaxDepth:     maxElements,
 	})
 	if err != nil {
 		return shared.WindowElement{}, err
 	}
 
-	return buildLibnutcoreWindowElementTree(focusedWindow, matches), nil
+	if len(matches) == 0 {
+		return shared.WindowElement{}, fmt.Errorf("window handle %d returned no accessible AX elements", windowHandle)
+	}
+
+	return buildLibnutcoreWindowElementTree(matches), nil
 }
 
 func (p *libnutcoreElementInspectionProvider) FindElement(ctx context.Context, windowHandle shared.WindowHandle, description shared.WindowElementDescription) (shared.WindowElement, error) {
@@ -87,35 +87,9 @@ func (p *libnutcoreElementInspectionProvider) FindElements(ctx context.Context, 
 	return matches, nil
 }
 
-func (p *libnutcoreElementInspectionProvider) focusedWindow(ctx context.Context, windowHandle shared.WindowHandle) (common.FocusedWindowMetadata, error) {
-	focusedWindow, err := p.client.GetFocusedWindow()
-	if err != nil {
-		return common.FocusedWindowMetadata{}, err
-	}
-	if windowHandleFromNative(focusedWindow.Handle) == windowHandle {
-		return focusedWindow, nil
-	}
-
-	if _, err := p.client.FocusWindow(windowHandleToNative(windowHandle)); err != nil {
-		return common.FocusedWindowMetadata{}, err
-	}
-	if err := ctx.Err(); err != nil {
-		return common.FocusedWindowMetadata{}, err
-	}
-
-	focusedWindow, err = p.client.GetFocusedWindow()
-	if err != nil {
-		return common.FocusedWindowMetadata{}, err
-	}
-	if focusedWindow.Handle != windowHandleToNative(windowHandle) {
-		return common.FocusedWindowMetadata{}, fmt.Errorf("focused window handle %d does not match requested handle %d", focusedWindow.Handle, windowHandle)
-	}
-	return focusedWindow, nil
-}
-
-func buildLibnutcoreWindowElementTree(window common.FocusedWindowMetadata, matches []common.AXElementMatch) shared.WindowElement {
+func buildLibnutcoreWindowElementTree(matches []common.AXElementMatch) shared.WindowElement {
 	root := &libnutcoreWindowElementNode{
-		element: windowElementFromFocusedWindow(window),
+		element: windowElementFromAXMatch(matches[0]),
 	}
 	for _, match := range matches {
 		node := root
@@ -155,20 +129,6 @@ func libnutcoreMaterializeWindowChildren(children map[int]*libnutcoreWindowEleme
 		result = append(result, element)
 	}
 	return result
-}
-
-func windowElementFromFocusedWindow(window common.FocusedWindowMetadata) shared.WindowElement {
-	element := shared.WindowElement{
-		Role:      optionalStringPointer(window.Role),
-		SubRole:   optionalStringPointer(window.Subrole),
-		Title:     optionalStringPointer(window.Title),
-		IsFocused: boolPointer(window.Focused),
-	}
-	if window.RectKnown {
-		region := regionFromNative(window.Rect)
-		element.Region = &region
-	}
-	return element
 }
 
 func windowElementFromAXMatch(match common.AXElementMatch) shared.WindowElement {

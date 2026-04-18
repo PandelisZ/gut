@@ -58,3 +58,56 @@ func TestLiveReadOnlyWindowEnumerationViaDefaultRegistry(t *testing.T) {
 	}
 	t.Logf("enumerated %d window(s); first title length=%d", len(windows), len(title))
 }
+
+func TestLiveReadOnlyBackgroundWindowHandleAXSearchViaNativeClient(t *testing.T) {
+	report := guttesting.Require(t, guttesting.Options{
+		RequiredCapabilities: []common.Capability{
+			common.CapabilityWindowList,
+			common.CapabilityWindowActive,
+			common.CapabilityAXElementSearch,
+		},
+	})
+
+	active, err := report.Client.GetActiveWindow()
+	if err != nil {
+		t.Fatalf("active window lookup failed: %v", err)
+	}
+
+	windows, err := report.Client.GetWindows()
+	if err != nil {
+		t.Fatalf("window enumeration failed: %v", err)
+	}
+
+	var target common.WindowHandle
+	for _, handle := range windows {
+		if handle != active {
+			target = handle
+			break
+		}
+	}
+	if target == 0 {
+		t.Skip("no non-active window was available for background AX search verification")
+	}
+
+	matches, err := report.Client.SearchAXElements(common.AXElementSearchQuery{
+		Scope:        common.AXSearchScopeWindowHandle,
+		WindowHandle: target,
+		Limit:        10,
+		MaxDepth:     2,
+	})
+	if err != nil {
+		t.Fatalf("background window-handle AX search failed for handle %d: %v", target, err)
+	}
+
+	for _, match := range matches {
+		if match.Ref.Scope != common.AXSearchScopeWindowHandle {
+			t.Fatalf("unexpected AX ref scope: %+v", match.Ref)
+		}
+		if match.Ref.WindowHandle != target {
+			t.Fatalf("unexpected AX ref window handle: got %d want %d", match.Ref.WindowHandle, target)
+		}
+	}
+
+	title, _ := report.Client.GetWindowTitle(target)
+	t.Logf("background window-handle AX search succeeded for handle=%d title=%q matches=%d active=%d", target, title, len(matches), active)
+}

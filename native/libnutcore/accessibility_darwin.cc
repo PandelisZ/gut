@@ -23,7 +23,9 @@ int gut_ax_get_system_value(CFStringRef attribute, AXUIElementRef *element);
 int gut_ax_copy_focused_application(AXUIElementRef *application);
 int gut_ax_copy_focused_window(AXUIElementRef *window);
 int gut_ax_copy_focused_window_from_application(AXUIElementRef application, AXUIElementRef *window);
+int gut_ax_copy_window_for_handle(int64_t window_handle, AXUIElementRef *window, pid_t *owner_pid);
 int gut_ax_copy_attribute_element_with_retry(AXUIElementRef source, CFStringRef attribute, AXUIElementRef *element);
+char *gut_ax_copy_attribute_string(AXUIElementRef element, CFStringRef attribute);
 NSString *gut_ax_action_token_to_ns_string(const char *action_token);
 bool gut_ax_action_supported(AXUIElementRef element, NSString *action_name);
 bool gut_ax_copy_rect(AXUIElementRef element, gut_rect *rect);
@@ -184,7 +186,7 @@ void gut_ax_fill_element_ref(gut_ax_element_ref *ref, const char *scope, pid_t o
 	}
 }
 
-int gut_ax_resolve_root(const char *scope, gut_ax_root_resolution *resolution) {
+int gut_ax_resolve_root(const char *scope, int64_t requested_window_handle, gut_ax_root_resolution *resolution) {
 	if (scope == NULL || scope[0] == '\0' || resolution == NULL) {
 		return 1;
 	}
@@ -218,6 +220,23 @@ int gut_ax_resolve_root(const char *scope, gut_ax_root_resolution *resolution) {
 		resolution->window_handle = 0;
 		return 0;
 	}
+	if (gut_ax_scope_equals(scope, "window_handle")) {
+		if (requested_window_handle <= 0) {
+			return 1;
+		}
+		int status = gut_ax_copy_window_for_handle(requested_window_handle, &resolution->root, &resolution->owner_pid);
+		if (status == 4) {
+			return 0;
+		}
+		if (status != 0) {
+			return status;
+		}
+		if (resolution->owner_pid <= 0) {
+			AXUIElementGetPid(resolution->root, &resolution->owner_pid);
+		}
+		resolution->window_handle = requested_window_handle;
+		return 0;
+	}
 	return 1;
 }
 
@@ -227,7 +246,7 @@ int gut_ax_resolve_ref_element(const gut_ax_element_ref *ref, AXUIElementRef *el
 	}
 	*element = NULL;
 	gut_ax_root_resolution resolution = {};
-	int status = gut_ax_resolve_root(ref->scope, &resolution);
+	int status = gut_ax_resolve_root(ref->scope, ref->window_handle, &resolution);
 	if (status != 0) {
 		return status;
 	}
@@ -238,7 +257,7 @@ int gut_ax_resolve_ref_element(const gut_ax_element_ref *ref, AXUIElementRef *el
 		CFRelease(resolution.root);
 		return 4;
 	}
-	if (gut_ax_scope_equals(ref->scope, "focused_window") && ref->window_handle != 0 && resolution.window_handle != 0 && ref->window_handle != resolution.window_handle) {
+	if (ref->window_handle != 0 && resolution.window_handle != 0 && ref->window_handle != resolution.window_handle) {
 		CFRelease(resolution.root);
 		return 4;
 	}
@@ -273,7 +292,12 @@ int gut_ax_validate_search_query(const gut_ax_element_search_query *query) {
 	if (query->scope == NULL || query->scope[0] == '\0') {
 		return 1;
 	}
-	if (!gut_ax_scope_equals(query->scope, "focused_window") && !gut_ax_scope_equals(query->scope, "frontmost_application")) {
+	if (!gut_ax_scope_equals(query->scope, "focused_window") &&
+		!gut_ax_scope_equals(query->scope, "frontmost_application") &&
+		!gut_ax_scope_equals(query->scope, "window_handle")) {
+		return 1;
+	}
+	if (gut_ax_scope_equals(query->scope, "window_handle") && query->window_handle <= 0) {
 		return 1;
 	}
 	if (query->limit <= 0) {
@@ -491,6 +515,13 @@ bool gut_ax_rect_matches_dictionary(gut_rect rect, CGRect bounds) {
 		rect.height == (int64_t)bounds.size.height;
 }
 
+bool gut_ax_rect_equals(gut_rect left, gut_rect right) {
+	return left.x == right.x &&
+		left.y == right.y &&
+		left.width == right.width &&
+		left.height == right.height;
+}
+
 bool gut_ax_point_is_on_screen(int64_t x, int64_t y) {
 	uint32_t display_count = 0;
 	if (CGGetActiveDisplayList(0, NULL, &display_count) != kCGErrorSuccess || display_count == 0) {
@@ -544,6 +575,170 @@ int64_t gut_ax_find_window_number(pid_t pid, gut_rect rect, bool has_rect) {
 	}
 	CFRelease(windows);
 	return handle;
+}
+
+bool gut_ax_copy_window_lookup_info(int64_t window_handle, pid_t *owner_pid, gut_rect *rect, bool *has_rect, NSString **title) {
+	if (owner_pid != NULL) {
+		*owner_pid = 0;
+	}
+	if (has_rect != NULL) {
+		*has_rect = false;
+	}
+	if (title != NULL) {
+		*title = nil;
+	}
+	if (window_handle <= 0) {
+		return false;
+	}
+
+	CFArrayRef windows = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID);
+	if (windows == NULL) {
+		return false;
+	}
+
+	bool found = false;
+	for (CFIndex index = 0; index < CFArrayGetCount(windows); index++) {
+		CFDictionaryRef dictionary = (CFDictionaryRef)CFArrayGetValueAtIndex(windows, index);
+		if (dictionary == NULL) {
+			continue;
+		}
+
+		CFNumberRef window_number = (CFNumberRef)CFDictionaryGetValue(dictionary, kCGWindowNumber);
+		int64_t candidate_window_handle = 0;
+		if (window_number == NULL || !CFNumberGetValue(window_number, kCFNumberSInt64Type, &candidate_window_handle) || candidate_window_handle != window_handle) {
+			continue;
+		}
+
+		found = true;
+		if (owner_pid != NULL) {
+			CFNumberRef candidate_owner_pid = (CFNumberRef)CFDictionaryGetValue(dictionary, kCGWindowOwnerPID);
+			int64_t value = 0;
+			if (candidate_owner_pid != NULL && CFNumberGetValue(candidate_owner_pid, kCFNumberSInt64Type, &value)) {
+				*owner_pid = (pid_t)value;
+			}
+		}
+		if (rect != NULL && has_rect != NULL) {
+			CFDictionaryRef bounds_dictionary = (CFDictionaryRef)CFDictionaryGetValue(dictionary, kCGWindowBounds);
+			CGRect bounds = CGRectZero;
+			if (bounds_dictionary != NULL && CGRectMakeWithDictionaryRepresentation(bounds_dictionary, &bounds)) {
+				rect->x = (int64_t)bounds.origin.x;
+				rect->y = (int64_t)bounds.origin.y;
+				rect->width = (int64_t)bounds.size.width;
+				rect->height = (int64_t)bounds.size.height;
+				*has_rect = true;
+			}
+		}
+		if (title != NULL) {
+			CFStringRef window_title = (CFStringRef)CFDictionaryGetValue(dictionary, kCGWindowName);
+			if (window_title != NULL && CFGetTypeID(window_title) == CFStringGetTypeID()) {
+				*title = [(__bridge NSString *)window_title copy];
+			}
+		}
+		break;
+	}
+
+	CFRelease(windows);
+	return found;
+}
+
+bool gut_ax_title_equals(NSString *expected, const char *candidate_utf8) {
+	if (expected == nil || candidate_utf8 == NULL || candidate_utf8[0] == '\0') {
+		return false;
+	}
+	NSString *candidate = [NSString stringWithUTF8String:candidate_utf8];
+	if (candidate == nil) {
+		return false;
+	}
+	return [expected isEqualToString:candidate];
+}
+
+bool gut_ax_window_matches_lookup(AXUIElementRef window, int64_t target_window_handle, gut_rect target_rect, bool has_target_rect, NSString *target_title) {
+	if (window == NULL) {
+		return false;
+	}
+
+	int64_t candidate_window_handle = gut_ax_window_number(window);
+	if (candidate_window_handle != 0 && candidate_window_handle == target_window_handle) {
+		return true;
+	}
+
+	bool title_match = false;
+	if (target_title != nil) {
+		char *candidate_title = gut_ax_copy_attribute_string(window, kAXTitleAttribute);
+		title_match = gut_ax_title_equals(target_title, candidate_title);
+		free(candidate_title);
+	}
+
+	bool rect_match = false;
+	if (has_target_rect) {
+		gut_rect candidate_rect = {};
+		rect_match = gut_ax_copy_rect(window, &candidate_rect) && gut_ax_rect_equals(target_rect, candidate_rect);
+	}
+
+	if (rect_match) {
+		return target_title == nil || title_match;
+	}
+	return target_title != nil && title_match && !has_target_rect;
+}
+
+int gut_ax_copy_window_for_handle(int64_t window_handle, AXUIElementRef *window, pid_t *owner_pid) {
+	if (window == NULL) {
+		return 2;
+	}
+	*window = NULL;
+	if (owner_pid != NULL) {
+		*owner_pid = 0;
+	}
+
+	pid_t pid = 0;
+	gut_rect rect = {};
+	bool has_rect = false;
+	NSString *title = nil;
+	if (!gut_ax_copy_window_lookup_info(window_handle, &pid, &rect, &has_rect, &title) || pid <= 0) {
+		[title release];
+		return 4;
+	}
+
+	AXUIElementRef application = AXUIElementCreateApplication(pid);
+	if (application == NULL) {
+		[title release];
+		return 2;
+	}
+
+	CFTypeRef window_value = NULL;
+	AXError ax_error = AXUIElementCopyAttributeValue(application, kAXWindowsAttribute, &window_value);
+	if (ax_error != kAXErrorSuccess || window_value == NULL || CFGetTypeID(window_value) != CFArrayGetTypeID()) {
+		if (window_value != NULL) {
+			CFRelease(window_value);
+		}
+		CFRelease(application);
+		[title release];
+		return ax_error == kAXErrorNoValue ? 4 : 2;
+	}
+
+	CFArrayRef windows = (CFArrayRef)window_value;
+	for (CFIndex index = 0; index < CFArrayGetCount(windows); index++) {
+		CFTypeRef item = CFArrayGetValueAtIndex(windows, index);
+		if (item == NULL || CFGetTypeID(item) != AXUIElementGetTypeID()) {
+			continue;
+		}
+		AXUIElementRef candidate = (AXUIElementRef)item;
+		if (!gut_ax_window_matches_lookup(candidate, window_handle, rect, has_rect, title)) {
+			continue;
+		}
+		CFRetain(candidate);
+		*window = candidate;
+		if (owner_pid != NULL) {
+			*owner_pid = pid;
+		}
+		break;
+	}
+
+	CFRelease(windows);
+	CFRelease(application);
+	[title release];
+
+	return *window == NULL ? 4 : 0;
 }
 
 void gut_ax_fill_running_application(pid_t pid, gut_window_metadata *metadata) {
@@ -970,7 +1165,7 @@ int gut_darwin_search_ax_elements(const gut_ax_element_search_query *query, gut_
 	}
 	@autoreleasepool {
 		gut_ax_root_resolution resolution = {};
-		int status = gut_ax_resolve_root(query->scope, &resolution);
+		int status = gut_ax_resolve_root(query->scope, query->window_handle, &resolution);
 		if (status != 0) {
 			return status;
 		}

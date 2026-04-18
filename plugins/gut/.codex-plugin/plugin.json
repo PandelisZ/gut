@@ -1,0 +1,46 @@
+{
+  "name": "gut",
+  "version": "0.1.0",
+  "description": "Inspect and control the local desktop with gut through a Go MCP server plus agent-friendly skills.",
+  "author": {
+    "name": "Pandelis Z",
+    "email": "support@example.com",
+    "url": "https://github.com/PandelisZ/gut"
+  },
+  "homepage": "https://github.com/PandelisZ/gut",
+  "repository": "https://github.com/PandelisZ/gut",
+  "license": "MIT",
+  "keywords": [
+    "desktop",
+    "automation",
+    "mcp",
+    "go",
+    "ui-testing",
+    "macos"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "gut",
+    "shortDescription": "Inspect and drive the local desktop with capability-aware MCP tools",
+    "longDescription": "gut packages a local Go MCP server around the gut desktop automation library, then layers skills on top so agents can inspect windows, accessibility state, colors, screenshots, clipboard contents, and controlled keyboard or mouse actions without reverse-engineering the raw API surface.",
+    "developerName": "Pandelis Z",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/PandelisZ/gut",
+    "privacyPolicyURL": "https://github.com/PandelisZ/gut",
+    "termsOfServiceURL": "https://github.com/PandelisZ/gut",
+    "defaultPrompt": [
+      "Inspect the current desktop and help me target a UI element with gut.",
+      "Use gut to capture the screen, inspect the active window, and automate a local UI flow."
+    ],
+    "brandColor": "#0B5FFF",
+    "composerIcon": "./assets/gut.svg",
+    "logo": "./assets/gut.svg",
+    "screenshots": []
+  }
+}

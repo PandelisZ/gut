@@ -331,6 +331,40 @@ func TestDarwinSearchAXElementsImpossibleRoleReturnsEmpty(t *testing.T) {
 	}
 }
 
+func TestDarwinSearchAXElementsCanTargetExplicitWindowHandle(t *testing.T) {
+	client := New(Options{})
+	snapshot := getPermissionSnapshotOrSkip(t, client)
+	if !snapshot.Accessibility.Granted {
+		t.Skip("Accessibility permission is not granted")
+	}
+
+	activeWindow, err := client.GetActiveWindow()
+	if err != nil {
+		t.Fatalf("unexpected active window error: %v", err)
+	}
+	if activeWindow <= 0 {
+		t.Skip("no active window handle is available")
+	}
+
+	matches, err := client.SearchAXElements(common.AXElementSearchQuery{
+		Scope:        common.AXSearchScopeWindowHandle,
+		WindowHandle: activeWindow,
+		Limit:        5,
+		MaxDepth:     1,
+	})
+	if err != nil {
+		t.Fatalf("unexpected searchAXElements error: %v", err)
+	}
+	for _, match := range matches {
+		if match.Ref.Scope != common.AXSearchScopeWindowHandle {
+			t.Fatalf("unexpected match scope: %s", match.Ref.Scope)
+		}
+		if match.Ref.WindowHandle != activeWindow {
+			t.Fatalf("unexpected match window handle: got %d want %d", match.Ref.WindowHandle, activeWindow)
+		}
+	}
+}
+
 func TestDarwinRefBasedFollowUpOperationsReturnCapabilityUnavailableWhenUnresolved(t *testing.T) {
 	client := New(Options{})
 	snapshot := getPermissionSnapshotOrSkip(t, client)
@@ -364,6 +398,9 @@ func TestDarwinSearchValidationRejectsInvalidQuery(t *testing.T) {
 	if _, err := client.SearchAXElements(common.AXElementSearchQuery{Scope: common.AXSearchScopeFocusedWindow, Limit: 1, MaxDepth: -1}); !errors.Is(err, common.ErrInvalidToken) {
 		t.Fatalf("expected negative max depth to return ErrInvalidToken, got %v", err)
 	}
+	if _, err := client.SearchAXElements(common.AXElementSearchQuery{Scope: common.AXSearchScopeWindowHandle, Limit: 1, MaxDepth: 0}); !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected missing window handle to return ErrInvalidToken, got %v", err)
+	}
 }
 
 func TestDarwinRefValidationRejectsInvalidScope(t *testing.T) {
@@ -373,6 +410,9 @@ func TestDarwinRefValidationRejectsInvalidScope(t *testing.T) {
 	}
 	if err := client.PerformAXElementAction(common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, Path: []int{-1}}, common.AXPress); !errors.Is(err, common.ErrInvalidToken) {
 		t.Fatalf("expected invalid ref path to return ErrInvalidToken, got %v", err)
+	}
+	if err := client.FocusAXElement(common.AXElementRef{Scope: common.AXSearchScopeWindowHandle}); !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected missing window handle on ref to return ErrInvalidToken, got %v", err)
 	}
 }
 

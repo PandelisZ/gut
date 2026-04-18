@@ -409,7 +409,8 @@ func TestAccessibilityProviderForwardsMetadataAndCapabilities(t *testing.T) {
 func TestAccessibilityProviderForwardsActions(t *testing.T) {
 	actionErr := errors.New("ax action failed")
 	searchQuery := common.AXElementSearchQuery{
-		Scope:               common.AXSearchScopeFrontmostApplication,
+		Scope:               common.AXSearchScopeWindowHandle,
+		WindowHandle:        77,
 		Role:                "AXButton",
 		Subrole:             "AXCloseButton",
 		TitleContains:       "Close",
@@ -422,7 +423,7 @@ func TestAccessibilityProviderForwardsActions(t *testing.T) {
 		MaxDepth:            4,
 	}
 	searchMatches := []common.AXElementMatch{{
-		Ref: common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, OwnerPID: 42, WindowHandle: 77, Path: []int{1, 3}},
+		Ref: common.AXElementRef{Scope: common.AXSearchScopeWindowHandle, OwnerPID: 42, WindowHandle: 77, Path: []int{1, 3}},
 		Metadata: common.UIElementMetadata{
 			Role:       "AXButton",
 			Title:      "Close",
@@ -435,7 +436,7 @@ func TestAccessibilityProviderForwardsActions(t *testing.T) {
 		ActionPoint:      common.Point{X: 25, Y: 26},
 		ActionPointKnown: true,
 	}}
-	matchRef := common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, OwnerPID: 42, WindowHandle: 77, Path: []int{1, 3}}
+	matchRef := common.AXElementRef{Scope: common.AXSearchScopeWindowHandle, OwnerPID: 42, WindowHandle: 77, Path: []int{1, 3}}
 	client := &fakeLibnutcoreClient{
 		raiseFocusedWindowErr:   actionErr,
 		searchAXElementsMatches: searchMatches,
@@ -573,18 +574,20 @@ func TestAccessibilityProviderChecksContextBeforeWork(t *testing.T) {
 
 func TestElementInspectionProviderBuildsTreeAndSupportsLookups(t *testing.T) {
 	client := &fakeLibnutcoreClient{
-		focusedWindow: common.FocusedWindowMetadata{
-			Handle:    77,
-			Title:     "Editor",
-			Role:      "AXWindow",
-			Subrole:   "AXStandardWindow",
-			Rect:      common.Rect{X: 10, Y: 20, Width: 300, Height: 200},
-			RectKnown: true,
-			Focused:   true,
-		},
 		searchAXElementsMatches: []common.AXElementMatch{
 			{
-				Ref: common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, WindowHandle: 77, Path: []int{0}},
+				Ref: common.AXElementRef{Scope: common.AXSearchScopeWindowHandle, WindowHandle: 77, Path: []int{}},
+				Metadata: common.UIElementMetadata{
+					Role:       "AXWindow",
+					Subrole:    "AXStandardWindow",
+					Title:      "Editor",
+					Focused:    false,
+					Frame:      common.Rect{X: 10, Y: 20, Width: 300, Height: 200},
+					FrameKnown: true,
+				},
+			},
+			{
+				Ref: common.AXElementRef{Scope: common.AXSearchScopeWindowHandle, WindowHandle: 77, Path: []int{0}},
 				Metadata: common.UIElementMetadata{
 					Role:       "AXGroup",
 					Title:      "Composer",
@@ -594,7 +597,7 @@ func TestElementInspectionProviderBuildsTreeAndSupportsLookups(t *testing.T) {
 				},
 			},
 			{
-				Ref: common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, WindowHandle: 77, Path: []int{0, 0}},
+				Ref: common.AXElementRef{Scope: common.AXSearchScopeWindowHandle, WindowHandle: 77, Path: []int{0, 0}},
 				Metadata: common.UIElementMetadata{
 					Role:       "AXTextField",
 					Value:      "Draft message",
@@ -605,7 +608,7 @@ func TestElementInspectionProviderBuildsTreeAndSupportsLookups(t *testing.T) {
 				},
 			},
 			{
-				Ref: common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, WindowHandle: 77, Path: []int{0, 1}},
+				Ref: common.AXElementRef{Scope: common.AXSearchScopeWindowHandle, WindowHandle: 77, Path: []int{0, 1}},
 				Metadata: common.UIElementMetadata{
 					Role:       "AXButton",
 					Title:      "Send",
@@ -622,8 +625,11 @@ func TestElementInspectionProviderBuildsTreeAndSupportsLookups(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected get elements error: %v", err)
 	}
-	if client.searchAXElementsQuery != (common.AXElementSearchQuery{Scope: common.AXSearchScopeFocusedWindow, Limit: 10, MaxDepth: 10}) {
+	if client.searchAXElementsQuery != (common.AXElementSearchQuery{Scope: common.AXSearchScopeWindowHandle, WindowHandle: 77, Limit: 10, MaxDepth: 10}) {
 		t.Fatalf("unexpected search query forwarding: %#v", client.searchAXElementsQuery)
+	}
+	if client.focusHandle != 0 {
+		t.Fatalf("expected element inspection to avoid focusing the window, got handle %d", client.focusHandle)
 	}
 	if root.Role == nil || *root.Role != "AXWindow" || len(root.Children) != 1 {
 		t.Fatalf("unexpected root element: %#v", root)

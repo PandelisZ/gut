@@ -441,6 +441,7 @@ func convertAXElementRef(ref C.gut_ax_element_ref) common.AXElementRef {
 func makeAXElementSearchQuery(query common.AXElementSearchQuery) (C.gut_ax_element_search_query, func()) {
 	cQuery := C.gut_ax_element_search_query{
 		scope:                makeCStringOrNil(string(query.Scope)),
+		window_handle:        C.int64_t(query.WindowHandle),
 		role:                 makeCStringOrNil(query.Role),
 		subrole:              makeCStringOrNil(query.Subrole),
 		title_contains:       makeCStringOrNil(query.TitleContains),
@@ -513,8 +514,11 @@ func boolPointerToTristate(value *bool) C.int {
 
 func validateAXElementSearchQuery(query common.AXElementSearchQuery) error {
 	switch query.Scope {
-	case common.AXSearchScopeFocusedWindow, common.AXSearchScopeFrontmostApplication:
+	case common.AXSearchScopeFocusedWindow, common.AXSearchScopeFrontmostApplication, common.AXSearchScopeWindowHandle:
 	default:
+		return fmt.Errorf("%w: searchAXElements [%s]", common.ErrInvalidToken, common.CapabilityAXElementSearch)
+	}
+	if query.Scope == common.AXSearchScopeWindowHandle && query.WindowHandle == 0 {
 		return fmt.Errorf("%w: searchAXElements [%s]", common.ErrInvalidToken, common.CapabilityAXElementSearch)
 	}
 	if query.Limit <= 0 {
@@ -528,8 +532,11 @@ func validateAXElementSearchQuery(query common.AXElementSearchQuery) error {
 
 func validateAXElementRef(ref common.AXElementRef, operation string, capability common.Capability) error {
 	switch ref.Scope {
-	case common.AXSearchScopeFocusedWindow, common.AXSearchScopeFrontmostApplication:
+	case common.AXSearchScopeFocusedWindow, common.AXSearchScopeFrontmostApplication, common.AXSearchScopeWindowHandle:
 	default:
+		return fmt.Errorf("%w: %s [%s]", common.ErrInvalidToken, operation, capability)
+	}
+	if ref.Scope == common.AXSearchScopeWindowHandle && ref.WindowHandle == 0 {
 		return fmt.Errorf("%w: %s [%s]", common.ErrInvalidToken, operation, capability)
 	}
 	for _, index := range ref.Path {

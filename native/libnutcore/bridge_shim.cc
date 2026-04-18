@@ -3,6 +3,7 @@
 
 #if defined(IS_MACOSX)
 #include "accessibility_darwin.h"
+#include "agent_cursor_darwin.h"
 #endif
 
 #include <stdlib.h>
@@ -303,6 +304,32 @@ int gut_get_screen_size(gut_size *size) {
 int gut_highlight(int64_t x, int64_t y, int64_t width, int64_t height, int64_t duration_ms, double opacity) {
 	highlight((int32_t)x, (int32_t)y, (int32_t)width, (int32_t)height, (long)duration_ms, (float)opacity);
 	return gut_status_ok;
+}
+
+int gut_show_agent_cursor(const char *kind, int64_t position_x, int64_t position_y, int has_target, int64_t target_x, int64_t target_y, const char *button_token, const char *direction_token, int pressed, int64_t duration_ms) {
+#if defined(IS_MACOSX)
+	return gut_darwin_show_agent_cursor(kind, position_x, position_y, has_target, target_x, target_y, button_token, direction_token, pressed, duration_ms);
+#else
+	(void)kind;
+	(void)position_x;
+	(void)position_y;
+	(void)has_target;
+	(void)target_x;
+	(void)target_y;
+	(void)button_token;
+	(void)direction_token;
+	(void)pressed;
+	(void)duration_ms;
+	return gut_status_unsupported;
+#endif
+}
+
+int gut_hide_agent_cursor(void) {
+#if defined(IS_MACOSX)
+	return gut_darwin_hide_agent_cursor();
+#else
+	return gut_status_unsupported;
+#endif
 }
 
 int gut_capture_screen(const gut_rect *region, gut_bitmap **bitmap) {

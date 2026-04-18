@@ -1,0 +1,20 @@
+{
+  "name": "gut-local-marketplace",
+  "interface": {
+    "displayName": "gut Local Marketplace"
+  },
+  "plugins": [
+    {
+      "name": "gut",
+      "source": {
+        "source": "local",
+        "path": "./plugins/gut"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

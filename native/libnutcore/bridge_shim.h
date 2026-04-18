@@ -81,6 +81,7 @@ typedef struct gut_int64_list {
 
 typedef struct gut_ax_element_search_query {
 	char *scope;
+	int64_t window_handle;
 	char *role;
 	char *subrole;
 	char *title_contains;
@@ -145,6 +146,8 @@ int gut_set_keyboard_delay(int64_t delay_ms);
 
 int gut_get_screen_size(gut_size *size);
 int gut_highlight(int64_t x, int64_t y, int64_t width, int64_t height, int64_t duration_ms, double opacity);
+int gut_show_agent_cursor(const char *kind, int64_t position_x, int64_t position_y, int has_target, int64_t target_x, int64_t target_y, const char *button_token, const char *direction_token, int pressed, int64_t duration_ms);
+int gut_hide_agent_cursor(void);
 int gut_capture_screen(const gut_rect *region, gut_bitmap **bitmap);
 
 int gut_get_windows(gut_window_list *windows);

@@ -15,10 +15,12 @@ type AXSearchScope string
 const (
 	AXSearchScopeFocusedWindow        AXSearchScope = "focused_window"
 	AXSearchScopeFrontmostApplication AXSearchScope = "frontmost_application"
+	AXSearchScopeWindowHandle         AXSearchScope = "window_handle"
 )
 
 type AXElementSearchQuery struct {
 	Scope               AXSearchScope
+	WindowHandle        WindowHandle
 	Role                string
 	Subrole             string
 	TitleContains       string

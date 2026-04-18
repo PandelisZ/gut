@@ -1,6 +1,15 @@
 # gut
 
-This module contains the Go rewrite and its local automation/testing entrypoints.
+`gut` is the Go desktop automation layer in this repo. It now ships with:
+
+- the library APIs under `./`
+- the capability report CLI at `./cmd/gutenv`
+- a local stdio MCP server at `./cmd/gutmcp`
+- a Codex plugin plus bundled skills at [`plugins/gut`](./plugins/gut)
+
+## Toolchain requirement
+
+`gut` now depends on the official Go MCP SDK, which currently requires Go `1.25`. The module `go` version was updated accordingly in [`go.mod`](./go.mod).
 
 ## Reproducible local commands
 
@@ -38,6 +47,114 @@ Live integration/parity smoke entrypoint:
 ```sh
 GUT_ENABLE_LIVE_TESTS=1 go test -v ./testing/...
 ```
+
+## MCP server
+
+Run the local MCP server over stdio:
+
+```sh
+go run ./cmd/gutmcp
+```
+
+Enable mutating tools:
+
+```sh
+GUT_MCP_ALLOW_MUTATION=1 go run ./cmd/gutmcp
+```
+
+Or:
+
+```sh
+go run ./cmd/gutmcp --allow-mutation
+```
+
+### Exposed tools
+
+Read-only:
+
+- `status`
+- `screen_capture`
+- `screen_color_at`
+- `screen_find_color`
+- `window_list`
+- `window_active`
+- `window_elements`
+- `window_find_elements`
+- `accessibility_snapshot`
+- `accessibility_search`
+- `clipboard_read`
+
+Mutating:
+
+- `window_action`
+- `accessibility_action`
+- `mouse_action`
+- `keyboard_action`
+- `clipboard_write`
+
+### Static resources
+
+- `gut://reference/capabilities`
+- `gut://reference/keys`
+
+## Codex plugin and skills
+
+The repo-local Codex plugin lives at [`plugins/gut`](./plugins/gut). It bundles:
+
+- the local MCP server configuration in [`plugins/gut/.mcp.json`](./plugins/gut/.mcp.json)
+- a launcher script in [`plugins/gut/scripts/run-gutmcp.sh`](./plugins/gut/scripts/run-gutmcp.sh)
+- four skills for inspection, targeting, and control
+
+The repo-local marketplace entry is at [`.agents/plugins/marketplace.json`](./.agents/plugins/marketplace.json).
+
+The bundled plugin configuration enables mutation by default via `GUT_MCP_ALLOW_MUTATION=1`, so agents should still use `status` and confirm intent before invoking mutating tools.
+
+## Generic MCP client config
+
+For a generic local MCP host, point it at the server directly:
+
+```json
+{
+  "mcpServers": {
+    "gut": {
+      "command": "go",
+      "args": ["run", "./cmd/gutmcp"],
+      "env": {
+        "GUT_MCP_ALLOW_MUTATION": "1"
+      }
+    }
+  }
+}
+```
+
+If the host does not launch from the repo root, use the plugin launcher script instead:
+
+```json
+{
+  "mcpServers": {
+    "gut": {
+      "command": "bash",
+      "args": ["/absolute/path/to/gut/plugins/gut/scripts/run-gutmcp.sh"]
+    }
+  }
+}
+```
+
+On Windows, prefer the direct `go run ./cmd/gutmcp` configuration instead of the plugin launcher script, because the bundled launcher currently assumes `bash`.
+
+## Platform and permission caveats
+
+- v1 is optimized for macOS.
+- Linux support depends on the active display session and capability availability.
+- Window, screen, and accessibility behavior is capability-driven; use `status` before automation.
+- macOS screen capture and accessibility flows may require Screen Recording and Accessibility permissions.
+
+## Explicitly unsupported in v1
+
+- OCR/text finding in the default registry
+- image-template finding in the default registry
+- MCP prompts
+- packaged MCP bundles or registry publication
 
 ## What remains gated
 

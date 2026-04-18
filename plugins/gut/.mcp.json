@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "gut": {
+      "command": "bash",
+      "args": ["./scripts/run-gutmcp.sh"],
+      "env": {
+        "GUT_MCP_ALLOW_MUTATION": "1"
+      }
+    }
+  }
+}

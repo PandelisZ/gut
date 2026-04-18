@@ -74,6 +74,13 @@ func TestValidateAXElementSearchQueryRejectsNegativeMaxDepth(t *testing.T) {
 	}
 }
 
+func TestValidateAXElementSearchQueryRejectsMissingWindowHandleForWindowScope(t *testing.T) {
+	err := validateAXElementSearchQuery(common.AXElementSearchQuery{Scope: common.AXSearchScopeWindowHandle, Limit: 1, MaxDepth: 0})
+	if !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken, got %v", err)
+	}
+}
+
 func TestValidateAXElementRefRejectsInvalidScope(t *testing.T) {
 	err := validateAXElementRef(common.AXElementRef{Scope: common.AXSearchScope("nope")}, "focusAXElement", common.CapabilityAXElementFocusMatch)
 	if !errors.Is(err, common.ErrInvalidToken) {
@@ -83,6 +90,13 @@ func TestValidateAXElementRefRejectsInvalidScope(t *testing.T) {
 
 func TestValidateAXElementRefRejectsNegativePathIndex(t *testing.T) {
 	err := validateAXElementRef(common.AXElementRef{Scope: common.AXSearchScopeFocusedWindow, Path: []int{-1}}, "focusAXElement", common.CapabilityAXElementFocusMatch)
+	if !errors.Is(err, common.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken, got %v", err)
+	}
+}
+
+func TestValidateAXElementRefRejectsMissingWindowHandleForWindowScope(t *testing.T) {
+	err := validateAXElementRef(common.AXElementRef{Scope: common.AXSearchScopeWindowHandle}, "focusAXElement", common.CapabilityAXElementFocusMatch)
 	if !errors.Is(err, common.ErrInvalidToken) {
 		t.Fatalf("expected ErrInvalidToken, got %v", err)
 	}
