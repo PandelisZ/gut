@@ -1,4 +1,5 @@
 #include "agent_cursor_darwin.h"
+#include "agent_cursor_motion_darwin.h"
 #include "appkit_main_thread_darwin.h"
 
 #import <Cocoa/Cocoa.h>
@@ -15,6 +16,7 @@ static const NSTimeInterval gut_agent_cursor_hide_delay = 1.2;
 static const NSTimeInterval gut_agent_cursor_fade_duration = 0.18;
 static const NSTimeInterval gut_agent_cursor_click_pulse_duration = 0.24;
 static const NSTimeInterval gut_agent_cursor_scroll_pulse_duration = 0.34;
+static const NSTimeInterval gut_agent_cursor_settle_duration = 0.34;
 
 typedef struct gut_agent_cursor_context {
 	int64_t position_x;
@@ -62,22 +64,6 @@ static void gut_agent_cursor_copy_token(char *destination, size_t destination_si
 	destination[destination_size - 1] = '\0';
 }
 
-static CGFloat gut_agent_cursor_clamp(CGFloat value, CGFloat min_value, CGFloat max_value) {
-	if (value < min_value) {
-		return min_value;
-	}
-	if (value > max_value) {
-		return max_value;
-	}
-	return value;
-}
-
-static CGFloat gut_agent_cursor_ease_out_cubic(CGFloat progress) {
-	CGFloat clamped = gut_agent_cursor_clamp(progress, 0.0, 1.0);
-	CGFloat inverse = 1.0 - clamped;
-	return 1.0 - inverse * inverse * inverse;
-}
-
 @class GutAgentCursorController;
 
 @interface GutAgentCursorView : NSView
@@ -95,6 +81,12 @@ static CGFloat gut_agent_cursor_ease_out_cubic(CGFloat progress) {
 @property(nonatomic, assign) NSPoint animationTo;
 @property(nonatomic, assign) NSTimeInterval animationStart;
 @property(nonatomic, assign) NSTimeInterval animationDuration;
+@property(nonatomic, assign) gut_agent_cursor_motion_profile motionProfile;
+@property(nonatomic, assign) CGFloat motionRotationRadians;
+@property(nonatomic, assign) CGFloat motionHoverLift;
+@property(nonatomic, assign) CGFloat motionScaleBoost;
+@property(nonatomic, assign) CGFloat motionTrailStrength;
+@property(nonatomic, assign) NSTimeInterval settleStart;
 @property(nonatomic, assign) NSTimeInterval hideDeadline;
 @property(nonatomic, assign) NSTimeInterval fadeStart;
 @property(nonatomic, assign) NSTimeInterval clickPulseStartA;
@@ -102,6 +94,7 @@ static CGFloat gut_agent_cursor_ease_out_cubic(CGFloat progress) {
 @property(nonatomic, assign) NSTimeInterval scrollPulseStart;
 @property(nonatomic, assign) BOOL hasPoint;
 @property(nonatomic, assign) BOOL animating;
+@property(nonatomic, assign) BOOL settling;
 @property(nonatomic, assign) BOOL fading;
 @property(nonatomic, assign) BOOL pressed;
 
@@ -117,6 +110,7 @@ static CGFloat gut_agent_cursor_ease_out_cubic(CGFloat progress) {
 - (void)hideCursor;
 - (CGFloat)clickPulseAtTime:(NSTimeInterval)now;
 - (CGFloat)scrollPulseAtTime:(NSTimeInterval)now;
+- (void)resetMotionEnvelope;
 @end
 
 @implementation GutAgentCursorView
@@ -140,7 +134,9 @@ static CGFloat gut_agent_cursor_ease_out_cubic(CGFloat progress) {
 	CGFloat scrollPulse = [controller scrollPulseAtTime:now];
 	CGFloat tipY = gut_agent_cursor_window_size - gut_agent_cursor_hotspot_top;
 	NSPoint tip = NSMakePoint(gut_agent_cursor_hotspot_x, tipY);
+	CGFloat idleBob = controller.pressed ? 0.0 : (sin(now * 2.2) * 0.9 + cos(now * 1.15) * 0.4);
 	CGFloat scale = controller.pressed ? 0.94 : 1.0;
+	scale += controller.motionScaleBoost;
 	scale += clickPulse * 0.08;
 	CGFloat pressOffset = controller.pressed ? -3.0 : 0.0;
 
@@ -167,16 +163,38 @@ static CGFloat gut_agent_cursor_ease_out_cubic(CGFloat progress) {
 		[ripple stroke];
 	}
 
+	if (controller.motionTrailStrength > 0.01) {
+		[NSGraphicsContext saveGraphicsState];
+		NSAffineTransform *trailTransform = [NSAffineTransform transform];
+		[trailTransform translateXBy:tip.x yBy:tip.y + pressOffset + idleBob + controller.motionHoverLift];
+		[trailTransform rotateByDegrees:(controller.motionProfile.heading_radians * 180.0 / M_PI)];
+		[trailTransform concat];
+
+		CGFloat trailLength = 28.0 + controller.motionTrailStrength * 44.0;
+		NSRect trailRect = NSMakeRect(-trailLength, -14.0, trailLength + 20.0, 28.0);
+		NSBezierPath *trail = [NSBezierPath bezierPathWithRoundedRect:trailRect xRadius:14.0 yRadius:14.0];
+		NSGradient *trailGradient = [[NSGradient alloc] initWithColorsAndLocations:
+			[NSColor colorWithCalibratedRed:1.0 green:0.76 blue:0.92 alpha:0.0], 0.0,
+			[NSColor colorWithCalibratedRed:1.0 green:0.64 blue:0.88 alpha:0.12 + controller.motionTrailStrength * 0.16], 0.55,
+			[NSColor colorWithCalibratedRed:1.0 green:0.42 blue:0.77 alpha:0.26 + controller.motionTrailStrength * 0.18], 1.0,
+			nil];
+		[trailGradient drawInBezierPath:trail angle:0.0];
+		[trailGradient release];
+
+		[NSGraphicsContext restoreGraphicsState];
+	}
+
 	[NSGraphicsContext saveGraphicsState];
 	NSAffineTransform *transform = [NSAffineTransform transform];
-	[transform translateXBy:tip.x yBy:tip.y + pressOffset];
+	[transform translateXBy:tip.x yBy:tip.y + pressOffset + idleBob + controller.motionHoverLift];
+	[transform rotateByDegrees:(controller.motionRotationRadians * 180.0 / M_PI)];
 	[transform scaleBy:scale];
 	[transform concat];
 
 	NSShadow *shadow = [[NSShadow alloc] init];
-	shadow.shadowOffset = NSMakeSize(0.0, -4.0);
-	shadow.shadowBlurRadius = 18.0;
-	shadow.shadowColor = [NSColor colorWithCalibratedRed:0.54 green:0.0 blue:0.3 alpha:0.3];
+	shadow.shadowOffset = NSMakeSize(0.0, -5.0 - controller.motionTrailStrength * 2.0);
+	shadow.shadowBlurRadius = 18.0 + controller.motionTrailStrength * 6.0;
+	shadow.shadowColor = [NSColor colorWithCalibratedRed:0.54 green:0.0 blue:0.3 alpha:0.3 + controller.motionTrailStrength * 0.08];
 	[shadow set];
 	[shadow release];
 
@@ -302,6 +320,7 @@ static CGFloat gut_agent_cursor_ease_out_cubic(CGFloat progress) {
 	[self invalidateTimer];
 	_hasPoint = NO;
 	_animating = NO;
+	_settling = NO;
 	_fading = NO;
 	_pressed = NO;
 	_hideDeadline = 0.0;
@@ -309,10 +328,20 @@ static CGFloat gut_agent_cursor_ease_out_cubic(CGFloat progress) {
 	_clickPulseStartA = 0.0;
 	_clickPulseStartB = 0.0;
 	_scrollPulseStart = 0.0;
+	[self resetMotionEnvelope];
 	if (_window != nil) {
 		[_window orderOut:nil];
 		[_window setAlphaValue:0.0];
 	}
+}
+
+- (void)resetMotionEnvelope {
+	_motionProfile = gut_agent_cursor_make_motion_profile(NSZeroPoint, NSZeroPoint);
+	_motionRotationRadians = 0.0;
+	_motionHoverLift = 0.0;
+	_motionScaleBoost = 0.0;
+	_motionTrailStrength = 0.0;
+	_settleStart = 0.0;
 }
 
 - (void)tick:(NSTimer *)timer {
@@ -378,10 +407,14 @@ static CGFloat gut_agent_cursor_ease_out_cubic(CGFloat progress) {
 			_animationTo = target;
 			_animationStart = now;
 			_animationDuration = duration;
+			_motionProfile = gut_agent_cursor_make_motion_profile(from, target);
 			_animating = YES;
+			_settling = NO;
 		} else {
 			_currentPoint = hasTarget ? target : position;
 			_animating = NO;
+			_settling = NO;
+			[self resetMotionEnvelope];
 		}
 		_pressed = NO;
 	} else if ([kind isEqualToString:@"drag_start"]) {
@@ -393,13 +426,19 @@ static CGFloat gut_agent_cursor_ease_out_cubic(CGFloat progress) {
 			_animationTo = target;
 			_animationStart = now;
 			_animationDuration = duration;
+			_motionProfile = gut_agent_cursor_make_motion_profile(from, target);
 			_animating = YES;
+			_settling = NO;
 		} else {
 			_currentPoint = hasTarget ? target : from;
 			_animating = NO;
+			_settling = NO;
+			[self resetMotionEnvelope];
 		}
 	} else {
 		_animating = NO;
+		_settling = NO;
+		[self resetMotionEnvelope];
 		_currentPoint = hasTarget ? target : position;
 
 		if ([kind isEqualToString:@"drag_end"] || [kind isEqualToString:@"mouse_up"]) {
@@ -432,23 +471,40 @@ static CGFloat gut_agent_cursor_ease_out_cubic(CGFloat progress) {
 
 - (void)advanceAnimationsToTime:(NSTimeInterval)now {
 	if (!_animating) {
+		if (_settling) {
+			CGFloat settleProgress = gut_agent_cursor_clamp((now - _settleStart) / gut_agent_cursor_settle_duration, 0.0, 1.0);
+			gut_agent_cursor_settle_sample settle = gut_agent_cursor_sample_settle(settleProgress);
+			_motionRotationRadians = settle.rotation_radians;
+			_motionHoverLift = settle.hover_lift;
+			_motionScaleBoost = settle.scale_boost;
+			_motionTrailStrength = settle.trail_strength;
+			if (settleProgress >= 1.0) {
+				_settling = NO;
+				[self resetMotionEnvelope];
+			}
+		}
 		return;
 	}
 
 	if (_animationDuration <= 0.0) {
 		_currentPoint = _animationTo;
 		_animating = NO;
+		_settling = YES;
+		_settleStart = now;
 		return;
 	}
 
 	CGFloat progress = gut_agent_cursor_clamp((now - _animationStart) / _animationDuration, 0.0, 1.0);
-	CGFloat eased = gut_agent_cursor_ease_out_cubic(progress);
-	_currentPoint = NSMakePoint(
-		_animationFrom.x + (_animationTo.x - _animationFrom.x) * eased,
-		_animationFrom.y + (_animationTo.y - _animationFrom.y) * eased
-	);
+	gut_agent_cursor_motion_sample sample = gut_agent_cursor_sample_motion(_motionProfile, _animationFrom, _animationTo, progress);
+	_currentPoint = sample.point;
+	_motionRotationRadians = sample.rotation_radians;
+	_motionHoverLift = sample.hover_lift;
+	_motionScaleBoost = sample.scale_boost;
+	_motionTrailStrength = sample.trail_strength;
 	if (progress >= 1.0) {
 		_animating = NO;
+		_settling = YES;
+		_settleStart = now;
 		_currentPoint = _animationTo;
 	}
 }
