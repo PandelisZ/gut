@@ -7,7 +7,10 @@
 
 static const CGFloat gut_agent_cursor_window_size = 156.0;
 static const CGFloat gut_agent_cursor_hotspot_x = 28.0;
-static const CGFloat gut_agent_cursor_hotspot_top = 18.0;
+// The rendered tip sits a few pixels above the path origin once stroke/glow are
+// applied; nudging the hotspot upward keeps the visible pointer tip aligned
+// with the real desktop coordinate.
+static const CGFloat gut_agent_cursor_hotspot_top = 22.0;
 static const NSTimeInterval gut_agent_cursor_hide_delay = 1.2;
 static const NSTimeInterval gut_agent_cursor_fade_duration = 0.18;
 static const NSTimeInterval gut_agent_cursor_click_pulse_duration = 0.24;

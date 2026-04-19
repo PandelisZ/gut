@@ -264,6 +264,24 @@ type AccessibilityActionOutput struct {
 	Point  *JSONPoint `json:"point,omitempty"`
 }
 
+type BackgroundWindowMouseActionInput struct {
+	Handle uint64      `json:"handle" jsonschema:"window handle for the target background window"`
+	Kind   string      `json:"kind" jsonschema:"click, double_click, focus, right_click, or show_menu"`
+	Point  *PointInput `json:"point,omitempty" jsonschema:"window-relative point target"`
+	Ref    *AXRefInput `json:"ref,omitempty" jsonschema:"cached accessibility ref target"`
+}
+
+type BackgroundWindowMouseActionOutput struct {
+	Action          string                 `json:"action"`
+	Handle          uint64                 `json:"handle"`
+	Snapped         bool                   `json:"snapped"`
+	ScreenPoint     *JSONPoint             `json:"screenPoint,omitempty"`
+	Ref             *JSONAXRef             `json:"ref,omitempty"`
+	PerformedAction string                 `json:"performedAction,omitempty"`
+	MatchedActions  []string               `json:"matchedActions,omitempty"`
+	Metadata        *JSONUIElementMetadata `json:"metadata,omitempty"`
+}
+
 type MouseActionInput struct {
 	Kind      string       `json:"kind" jsonschema:"move, click, double_click, press, release, scroll, or drag"`
 	Button    string       `json:"button,omitempty" jsonschema:"left, middle, or right"`

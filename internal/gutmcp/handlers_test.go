@@ -123,3 +123,54 @@ func TestNegativeLimitsAreRejected(t *testing.T) {
 		t.Fatalf("expected window_elements maxElements error, got %v", err)
 	}
 }
+
+func TestBackgroundWindowMouseActionUsesStrictVirtualPath(t *testing.T) {
+	deps := newTestDeps(t, true)
+	deps.accessibility.searchMatches = []common.AXElementMatch{{
+		Ref: common.AXElementRef{Scope: common.AXSearchScopeWindowHandle, WindowHandle: 2, Path: []int{0, 1}},
+		Metadata: common.UIElementMetadata{
+			Role:       "AXButton",
+			Title:      "Run",
+			Enabled:    true,
+			FrameKnown: true,
+			Frame:      common.Rect{X: 240, Y: 180, Width: 90, Height: 40},
+			Actions:    []string{string(common.AXPress)},
+		},
+		Depth:            1,
+		ActionPointKnown: true,
+		ActionPoint:      common.Point{X: 285, Y: 200},
+	}}
+
+	_, output, err := deps.service.backgroundWindowMouseActionTool(context.Background(), nil, BackgroundWindowMouseActionInput{
+		Handle: 2,
+		Kind:   "click",
+		Point:  &PointInput{X: 225, Y: 135},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if output.Action != "click" || output.Ref == nil || output.ScreenPoint == nil {
+		t.Fatalf("unexpected output payload: %#v", output)
+	}
+	if output.PerformedAction != string(common.AXPress) {
+		t.Fatalf("unexpected performed action: %#v", output)
+	}
+	if deps.windows.lastFocus != 0 {
+		t.Fatalf("expected strict background action to avoid FocusWindow, got %d", deps.windows.lastFocus)
+	}
+	if deps.accessibility.lastRefAction.action != common.AXPress {
+		t.Fatalf("expected AXPress follow-up, got %#v", deps.accessibility.lastRefAction)
+	}
+}
+
+func TestBackgroundWindowMouseActionRequiresPointOrRef(t *testing.T) {
+	deps := newTestDeps(t, true)
+
+	_, _, err := deps.service.backgroundWindowMouseActionTool(context.Background(), nil, BackgroundWindowMouseActionInput{
+		Handle: 2,
+		Kind:   "click",
+	})
+	if err == nil || !strings.Contains(err.Error(), "point or ref is required") {
+		t.Fatalf("expected point/ref validation error, got %v", err)
+	}
+}

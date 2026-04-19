@@ -4,11 +4,19 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/PandelisZ/gut/backgroundmouse"
+	"github.com/PandelisZ/gut/native/common"
 	"github.com/PandelisZ/gut/shared"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func (s *Service) registerInputTools(server *mcp.Server) {
+	mcp.AddTool(server, mutatingTool(
+		"background_window_mouse_action",
+		"Background Window Mouse Action",
+		"Perform a strict AX-backed virtual mouse action against a background window without moving the real cursor or focusing the target window.",
+	), s.backgroundWindowMouseActionTool)
+
 	mcp.AddTool(server, mutatingTool(
 		"mouse_action",
 		"Mouse Action",
@@ -20,6 +28,61 @@ func (s *Service) registerInputTools(server *mcp.Server) {
 		"Keyboard Action",
 		"Type text or tap, press, and release keyboard keys.",
 	), s.keyboardActionTool)
+}
+
+func (s *Service) backgroundWindowMouseActionTool(ctx context.Context, _ *mcp.CallToolRequest, input BackgroundWindowMouseActionInput) (*mcp.CallToolResult, BackgroundWindowMouseActionOutput, error) {
+	if err := s.requireMutation("background_window_mouse_action"); err != nil {
+		return nil, BackgroundWindowMouseActionOutput{}, actionableError("background_window_mouse_action", err)
+	}
+	if input.Handle == 0 {
+		return nil, BackgroundWindowMouseActionOutput{}, actionableError("background_window_mouse_action", fmt.Errorf("handle is required"))
+	}
+
+	kind, err := parseBackgroundWindowMouseActionKind(input.Kind)
+	if err != nil {
+		return nil, BackgroundWindowMouseActionOutput{}, actionableError("background_window_mouse_action", err)
+	}
+
+	request := backgroundmouse.ActionRequest{
+		WindowHandle: shared.WindowHandle(input.Handle),
+		Kind:         kind,
+	}
+	if input.Point != nil {
+		point := input.Point.toShared()
+		request.Point = &point
+	} else if input.Ref != nil {
+		ref, err := axRefInputToNative(*input.Ref)
+		if err != nil {
+			return nil, BackgroundWindowMouseActionOutput{}, actionableError("background_window_mouse_action", err)
+		}
+		if ref.Scope == common.AXSearchScopeWindowHandle && ref.WindowHandle == 0 {
+			return nil, BackgroundWindowMouseActionOutput{}, actionableError("background_window_mouse_action", fmt.Errorf("windowHandle is required when ref.scope is window_handle"))
+		}
+		request.Ref = &ref
+	} else {
+		return nil, BackgroundWindowMouseActionOutput{}, actionableError("background_window_mouse_action", fmt.Errorf("point or ref is required"))
+	}
+
+	result, err := s.nut.BackgroundMouse.Perform(ctx, request)
+	if err != nil {
+		return nil, BackgroundWindowMouseActionOutput{}, actionableError("background_window_mouse_action", err)
+	}
+
+	output := BackgroundWindowMouseActionOutput{
+		Action:          string(kind),
+		Handle:          input.Handle,
+		Snapped:         result.Snapped,
+		PerformedAction: string(result.PerformedAction),
+		MatchedActions:  backgroundActionNames(result.MatchedActions),
+		Metadata:        uiElementToJSON(result.MatchedElement.Metadata),
+	}
+	if ref := axRefToJSON(result.MatchedRef); ref != nil {
+		output.Ref = ref
+	}
+	screenPoint := pointToJSON(result.ScreenPoint)
+	output.ScreenPoint = &screenPoint
+
+	return nil, output, nil
 }
 
 func (s *Service) mouseActionTool(ctx context.Context, _ *mcp.CallToolRequest, input MouseActionInput) (*mcp.CallToolResult, MouseActionOutput, error) {
@@ -198,4 +261,29 @@ func mouseDragPath(ctx context.Context, service *Service, input MouseActionInput
 		return nil, fmt.Errorf("point or path is required for drag")
 	}
 	return service.nut.Mouse.StraightTo(ctx, input.Point.toShared())
+}
+
+func parseBackgroundWindowMouseActionKind(value string) (backgroundmouse.ActionKind, error) {
+	switch normalizeEnum(value) {
+	case "click":
+		return backgroundmouse.ActionClick, nil
+	case "doubleclick":
+		return backgroundmouse.ActionDoubleClick, nil
+	case "focus":
+		return backgroundmouse.ActionFocus, nil
+	case "rightclick":
+		return backgroundmouse.ActionRightClick, nil
+	case "showmenu":
+		return backgroundmouse.ActionShowMenu, nil
+	default:
+		return "", fmt.Errorf("unknown background window mouse action kind %q", value)
+	}
+}
+
+func backgroundActionNames(actions []backgroundmouse.ActionKind) []string {
+	result := make([]string, 0, len(actions))
+	for _, action := range actions {
+		result = append(result, string(action))
+	}
+	return result
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/PandelisZ/gut/assert"
+	"github.com/PandelisZ/gut/backgroundmouse"
 	"github.com/PandelisZ/gut/keyboard"
 	"github.com/PandelisZ/gut/mouse"
 	"github.com/PandelisZ/gut/native/libnutcore"
@@ -22,6 +23,10 @@ type Mouse = mouse.Mouse
 
 type MouseConfig = mouse.Config
 
+type BackgroundMouse = backgroundmouse.BackgroundMouse
+
+type BackgroundMouseConfig = backgroundmouse.Config
+
 type Screen = screen.Screen
 
 type ScreenConfig = screen.Config
@@ -33,22 +38,24 @@ type Window = window.Window
 type Assert = assert.Assert
 
 type Nut struct {
-	Registry *provider.Registry
-	Keyboard *keyboard.Keyboard
-	Mouse    *mouse.Mouse
-	Screen   *screen.Screen
-	Assert   *assert.Assert
+	Registry        *provider.Registry
+	Keyboard        *keyboard.Keyboard
+	Mouse           *mouse.Mouse
+	BackgroundMouse *backgroundmouse.BackgroundMouse
+	Screen          *screen.Screen
+	Assert          *assert.Assert
 }
 
 func New(registry *provider.Registry) *Nut {
 	registry = registryOrNew(registry)
 	scr := NewScreen(registry)
 	return &Nut{
-		Registry: registry,
-		Keyboard: NewKeyboard(registry),
-		Mouse:    NewMouse(registry),
-		Screen:   scr,
-		Assert:   NewAssert(scr),
+		Registry:        registry,
+		Keyboard:        NewKeyboard(registry),
+		Mouse:           NewMouse(registry),
+		BackgroundMouse: NewBackgroundMouse(registry),
+		Screen:          scr,
+		Assert:          NewAssert(scr),
 	}
 }
 
@@ -74,6 +81,10 @@ func NewKeyboard(registry *provider.Registry) *keyboard.Keyboard {
 
 func NewMouse(registry *provider.Registry) *mouse.Mouse {
 	return mouse.New(registryOrNew(registry))
+}
+
+func NewBackgroundMouse(registry *provider.Registry) *backgroundmouse.BackgroundMouse {
+	return backgroundmouse.New(registryOrNew(registry))
 }
 
 func NewScreen(registry *provider.Registry) *screen.Screen {

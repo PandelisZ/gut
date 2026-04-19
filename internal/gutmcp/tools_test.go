@@ -26,7 +26,7 @@ func TestServerListsToolsResourcesAndBlocksMutationWhenDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListTools failed: %v", err)
 	}
-	if len(tools.Tools) != 16 {
+	if len(tools.Tools) != 17 {
 		t.Fatalf("unexpected tool count: got %d", len(tools.Tools))
 	}
 
